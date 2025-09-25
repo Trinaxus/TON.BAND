@@ -1,0 +1,127 @@
+/* Globale Styles für Galerie-Bereich */
+
+/* Galerie-Ansicht Styles */
+.gallery-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
+  padding: 20px;
+  padding-bottom: 120px; /* Deutlich erhöhter Abstand unten für den Footer */
+  max-width: 1400px;
+  margin: 0 auto;
+  margin-bottom: 120px; /* Deutlich erhöhter Abstand zum Footer */
+}
+
+.gallery-item {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(30, 30, 30, 0.7);
+  border: 1px solid rgba(0, 225, 255, 0.1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 225, 255, 0.05);
+  transition: all 0.3s ease;
+}
+
+.gallery-item:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 24px rgba(0, 225, 255, 0.2), 0 0 0 1px rgba(0, 225, 255, 0.2);
+  border-color: rgba(0, 225, 255, 0.3);
+}
+
+.gallery-item:hover .gallery-caption {
+  transform: translateY(-5px);
+}
+
+.gallery-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: filter 0.3s ease;
+}
+
+.gallery-caption {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 12px 16px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.7) 70%, transparent);
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  transform: translateY(0);
+  transition: transform 0.3s ease;
+}
+/* Weitere Galerie-Elemente */
+.gallery-video-indicator {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--color-primary-300);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(0, 225, 255, 0.2);
+}
+
+.gallery-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 30px;
+  justify-content: center;
+  padding: 15px 20px;
+  /* Hier können Sie den Hintergrund anpassen */
+  background: rgb(30, 30, 30); /* Hintergrundfarbe mit 50% Transparenz */
+  border-radius: 12px;
+  backdrop-filter: blur(10px); /* Unschärfeeffekt für Elemente dahinter */
+  border: 1px solid rgba(0, 225, 255, 0.1);
+  max-width: 90%;
+  margin-left: auto;
+  margin-right: auto;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  position: relative;
+  z-index: 1;
+  margin-top: 28px; /* Abstand nach oben zu Header/AdminNav */
+}
+
+/* Speziell für Blog-Admin: falls Filter als .gallery-filter genutzt werden */
+.admin-blog .gallery-filter {
+  position: relative !important;
+  z-index: 1 !important;
+  margin-top: 28px !important;
+}
+
+.gallery-filter-button {
+  padding: 10px 18px;
+  background: rgba(45, 45, 45, 0.8);
+  color: white;
+  border: 1px solid rgba(0, 225, 255, 0.1);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 500;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.gallery-filter-button:hover {
+  background: rgba(0, 180, 204, 0.2);
+  border-color: rgba(0, 225, 255, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 225, 255, 0.15);
+}
+
+.gallery-filter-button.active {
+  background: var(--color-primary-600);
+  border-color: var(--color-primary-400);
+  color: white;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0, 225, 255, 0.2);
+}

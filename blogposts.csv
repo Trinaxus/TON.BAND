@@ -1,0 +1,2 @@
+title,slug,content,excerpt,coverImage,author,published,publishedAt,updatedAt,tags,category,isDraft,seoTitle,seoDescription
+"Beispielpost","beispielpost","Hier steht der Inhalt des Blogposts.","Kurze Vorschau auf den Beitrag.","https://example.com/image.jpg","Admin",TRUE,"2025-05-10 08:00","2025-05-10 08:00","News;Event","News",FALSE,"SEO Titel Beispiel","SEO Beschreibung Beispiel"

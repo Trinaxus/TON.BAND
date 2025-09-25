@@ -1,0 +1,1536 @@
+"use client";
+import "../globals-admin.css";
+import "../globals-gallery.css";
+import React, { useEffect, useState } from "react";
+import AuthCheck from "../components/AuthCheck";
+import UserStatus from "../components/UserStatus";
+import VisitorCounter from "../components/VisitorCounter";
+import VisitorStats from "../components/VisitorStats";
+
+interface GalleryMeta {
+  jahr: string;
+  galerie: string;
+  kategorie: string;
+  tags: string[];
+  accessType?: 'public' | 'password' | 'internal';
+  password?: string;
+  // Für Abwärtskompatibilität
+  passwordProtected?: boolean;
+}
+
+interface Gallery {
+  name: string;
+  images: string[];
+  meta?: GalleryMeta;
+}
+
+// Hilfsfunktion: Prüft, ob eine URL ein Video ist
+const isVideoUrl = (url: string): boolean => {
+  const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.wmv', '.flv', '.mkv'];
+  return videoExtensions.some(ext => url.toLowerCase().endsWith(ext));
+};
+
+// Hilfsfunktion: Finde ein hochgeladenes Thumbnail für ein Video
+const findVideoThumbnail = (videoUrl: string, galleryFiles: string[]): string | null => {
+  // Extrahiere den Dateinamen ohne Erweiterung
+  const videoName = videoUrl.split('/').pop()?.split('.')[0];
+  if (!videoName) return null;
+  
+  // Extrahiere Jahr und Galerie aus der URL für den video_thumb-Pfad
+  const urlParts = videoUrl.split('/');
+  const year = urlParts[urlParts.length - 3]; // Jahr ist 3 Teile vor dem Dateinamen
+  const gallery = urlParts[urlParts.length - 2]; // Galerie ist 2 Teile vor dem Dateinamen
+  
+  // Suche nach einem passenden Thumbnail in der Galerie
+  const thumbnail = galleryFiles.find(url => 
+    (url.includes(`${videoName}_thumb.`) || url.includes(`${videoName}-thumb.`)) && !isVideoUrl(url)
+  );
+  
+  // Wenn kein Thumbnail gefunden wurde, versuche es im video_thumb/-Unterordner
+  if (!thumbnail) {
+    // Konstruiere den Pfad zum Thumbnail im video_thumb/-Unterordner
+    const videoThumbPath = `https://www.tubox.de/tonband/uploads/${year}/${gallery}/video_thumb/${videoName}_thumb.jpg`;
+    return videoThumbPath;
+  }
+  
+  return thumbnail;
+};
+
+// Hilfsfunktion: Generiere eine Video-Thumbnail-URL oder verwende den Fallback
+const getVideoThumbnail = (videoUrl: string, galleryFiles: string[] = []): string => {
+  // Debug-Ausgabe der Video-URL
+  console.log('Video URL:', videoUrl);
+  
+  // Direkter Ansatz: Extrahiere Jahr, Galerie und Dateinamen direkt aus der URL
+  if (videoUrl.includes('/tonband/uploads/')) {
+    try {
+      const urlPath = videoUrl.split('/tonband/uploads/')[1];
+      const pathParts = urlPath.split('/');
+      
+      if (pathParts.length >= 3) {
+        const year = pathParts[0];
+        const gallery = pathParts[1];
+        const videoName = pathParts[pathParts.length - 1].split('.')[0];
+        
+        console.log('Extrahierte Daten:', { year, gallery, videoName });
+        
+        // Direkter Pfad zum video_thumb-Ordner
+        const videoThumbPath = `https://www.tubox.de/tonband/uploads/${year}/${gallery}/video_thumb/${videoName}_thumb.jpg`;
+        console.log('Generierter Thumbnail-Pfad:', videoThumbPath);
+        
+        // Gib den direkten Pfad zurück
+        return videoThumbPath;
+      }
+    } catch (error) {
+      console.error('Fehler beim Extrahieren der URL-Teile:', error);
+    }
+  }
+  
+  // Fallback: Suche nach einem passenden Thumbnail in der Galerie
+  const videoName = videoUrl.split('/').pop()?.split('.')[0];
+  if (videoName && galleryFiles.length > 0) {
+    const thumbnail = galleryFiles.find(url => 
+      (url.includes(`${videoName}_thumb.`) || url.includes(`${videoName}-thumb.`)) && !isVideoUrl(url)
+    );
+    
+    if (thumbnail) {
+      console.log('Gefundenes Thumbnail in galleryFiles:', thumbnail);
+      return thumbnail;
+    }
+  }
+  
+  // Fallback: Generiere ein SVG als Platzhalter
+  console.log('Verwende SVG-Fallback für:', videoUrl);
+  return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='240' viewBox='0 0 320 240'%3E%3Crect width='320' height='240' fill='%232a1208'/%3E%3Ctext x='160' y='120' font-family='Arial' font-size='16' fill='%23ff6b00' text-anchor='middle'%3EVideo%3C/text%3E%3C/svg%3E`;
+};
+
+export default function AdminPage() {
+  // Erkennung für mobile Geräte
+  const [isMobile, setIsMobile] = useState(false);
+  
+  // Prüfe beim Laden, ob es sich um ein mobiles Gerät handelt
+  useEffect(() => {
+    const checkIfMobile = () => {
+      const mobile = window.innerWidth < 768; // Typischer Breakpoint für mobile Geräte
+      setIsMobile(mobile);
+    };
+    
+    // Initial prüfen
+    checkIfMobile();
+    
+    // Event-Listener für Größenänderungen
+    window.addEventListener('resize', checkIfMobile);
+    
+    // Cleanup
+    return () => window.removeEventListener('resize', checkIfMobile);
+  }, []);
+  
+  // Galerie-Verwaltung State
+  const [galleries, setGalleries] = useState<Gallery[]>([]);
+  const [openGallery, setOpenGallery] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+  const [imgDeleting, setImgDeleting] = useState<{[key:string]: boolean}>({});
+  const [galleryDeleting, setGalleryDeleting] = useState<{[key:string]: boolean}>({});
+  const [editingGallery, setEditingGallery] = useState<string | null>(null);
+  const [editingMeta, setEditingMeta] = useState<GalleryMeta>({ 
+    jahr: "", 
+    galerie: "", 
+    kategorie: "", 
+    tags: []
+  });
+  const [metaSaving, setMetaSaving] = useState(false);
+  const [metaLoading, setMetaLoading] = useState(false);
+  const [newTag, setNewTag] = useState("");
+  const [thumbnailModalOpen, setThumbnailModalOpen] = useState(false);
+  const [selectedVideoForThumbnail, setSelectedVideoForThumbnail] = useState<{url: string, galleryName: string} | null>(null);
+  const [isGalleryThumbnailUpload, setIsGalleryThumbnailUpload] = useState(false);
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
+
+  // Upload-State
+  const [files, setFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<{url: string, type: 'image' | 'video', file: File}[]>([]);
+  const [year, setYear] = useState("");
+  const [gallery, setGallery] = useState("");
+  const [kategorie, setKategorie] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [uploadResults, setUploadResults] = useState<string[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Fetch galleries
+  const fetchGalleries = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      // Füge is_admin=true hinzu, um alle Galerien anzuzeigen, auch interne
+      const res = await fetch("/api/galleries?is_admin=true");
+      if (!res.ok) throw new Error("Fehler beim Laden der Galerien");
+      const data = await res.json();
+
+      // Konvertiere das Galerieformat von {"name": ["url1", "url2"]} zu [{name: "name", images: ["url1", "url2"]}]
+      if (data.galleries) {
+        const formattedGalleries = Object.entries(data.galleries).map(([name, images]) => {
+          // Konvertiere alle WebDisk-URLs zu Partycrasher-URLs
+          let convertedImages = (images as string[]).map(url => convertWebDiskUrl(url));
+
+          // Prüfe, ob es sich um eine Video-Galerie handelt
+          if (isVideoGallery(name)) {
+            // In Video-Galerien nur tatsächliche Videos anzeigen (keine Thumbnails)
+            convertedImages = convertedImages.filter(url => !isThumbnailUrl(url));
+            console.log(`Galerie ${name} ist eine Video-Galerie. Zeige nur Videos an:`, convertedImages);
+          }
+
+          // Prüfe, ob die Galerie Videos enthält
+          const hasVideos = convertedImages.some(url => isVideoUrl(url));
+          if (hasVideos) {
+            console.log(`Galerie ${name} enthält Videos:`,
+              convertedImages.filter(url => isVideoUrl(url)));
+          }
+
+          return {
+            name,
+            images: convertedImages,
+            meta: data.metadata?.[name] || { jahr: "", galerie: "", kategorie: "", tags: [] }
+          };
+        });
+        setGalleries(formattedGalleries);
+      } else {
+        setGalleries([]);
+      }
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchGalleries(); }, []);
+  
+  // Metadaten einer Galerie laden
+  const fetchGalleryMeta = async (galleryName: string) => {
+    try {
+      const parts = galleryName.split("/");
+      if (parts.length < 2) return;
+      
+      const year = parts[0];
+      const gallery = parts[1];
+      
+      const res = await fetch(`/api/gallery-meta?year=${encodeURIComponent(year)}&gallery=${encodeURIComponent(gallery)}`);
+      if (!res.ok) throw new Error("Fehler beim Laden der Metadaten");
+      
+      const meta = await res.json();
+      return meta;
+    } catch (e: any) {
+      setError(e.message);
+      return null;
+    }
+  };
+  
+  // Metadaten einer Galerie bearbeiten
+  const handleEditMeta = async (galleryName: string) => {
+    setEditingGallery(galleryName);
+    setMetaLoading(true);
+    
+    // Standardwerte basierend auf dem Galerienamen setzen
+    const parts = galleryName.split("/");
+    const year = parts[0] || "";
+    const galleryPart = parts[1] || "";
+    
+    // Standardwerte setzen
+    setEditingMeta({
+      jahr: year,
+      galerie: galleryPart,
+      kategorie: "",
+      tags: [],
+      accessType: "public" // Standardmäßig öffentlich
+    });
+    
+    try {
+      const meta = await fetchGalleryMeta(galleryName);
+      if (meta) {
+        // Bestehende Metadaten laden
+        setEditingMeta(meta);
+      }
+    } catch (e: any) {
+      setError("Fehler beim Laden der Metadaten");
+    } finally {
+      setMetaLoading(false);
+    }
+  };
+  
+  // Metadaten speichern
+  const saveMeta = async () => {
+    if (!editingGallery) return;
+    
+    setMetaSaving(true);
+    try {
+      const parts = editingGallery.split("/");
+      if (parts.length < 2) throw new Error("Ungültiger Galeriename");
+      
+      const year = parts[0];
+      const gallery = parts[1];
+      
+      const res = await fetch("/api/gallery-meta", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          year,
+          gallery,
+          meta: editingMeta
+        })
+      });
+      
+      if (!res.ok) throw new Error("Fehler beim Speichern der Metadaten");
+      
+      // Aktualisiere die Galerie in der Liste
+      setGalleries(galleries.map(g => {
+        if (g.name === editingGallery) {
+          return { ...g, meta: editingMeta };
+        }
+        return g;
+      }));
+      
+      setSuccessMsg("Metadaten gespeichert");
+      setEditingGallery(null); // Modal schließen
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setMetaSaving(false);
+    }
+  };
+  
+  // Tag hinzufügen
+  const addTag = () => {
+    if (!newTag.trim()) return;
+    if (!editingMeta.tags.includes(newTag.trim())) {
+      setEditingMeta({
+        ...editingMeta,
+        tags: [...editingMeta.tags, newTag.trim()]
+      });
+    }
+    setNewTag("");
+  };
+  
+  // Tag entfernen
+  const removeTag = (tag: string) => {
+    setEditingMeta({
+      ...editingMeta,
+      tags: editingMeta.tags.filter(t => t !== tag)
+    });
+  };
+
+  // Galerie öffnen/schließen
+  const toggleGallery = (galleryName: string) => {
+    if (openGallery === galleryName) {
+      setOpenGallery(null);
+    } else {
+      setOpenGallery(galleryName);
+      // Automatisch Jahr und Galerie für Upload setzen
+      const parts = galleryName.split("/");
+      if (parts.length >= 2) {
+        setYear(parts[0]);
+        setGallery(parts[1]);
+      }
+    }
+  };
+
+  // Bild löschen
+  const handleDeleteImage = async (galleryName: string, imgUrl: string) => {
+    if (!confirm("Bild wirklich löschen?")) return;
+    setImgDeleting(d => ({...d, [imgUrl]: true}));
+    try {
+      // Extrahiere Jahr, Galerie, Dateiname aus URL
+      // Konvertiere WebDisk/Partycrasher-URLs zu tonband-URLs und extrahiere den relativen Pfad
+      let cleanUrl = imgUrl;
+      
+      // Wenn es eine WebDisk-URL ist, konvertiere sie zu einer tonband-URL
+      if (imgUrl.includes("/WebDisk/uploads/")) {
+        // Ersetze nur für die Anzeige
+        const tonbandUrl = imgUrl.replace("https://www.tubox.de/WebDisk/uploads/", "https://www.tubox.de/tonband/uploads/");
+        console.log("WebDisk URL konvertiert zu tonband URL:", tonbandUrl);
+        // Aktualisiere die URL in der Galerie
+        setGalleries(galleries => galleries.map(g => {
+          if (g.name === galleryName) {
+            return {
+              ...g,
+              images: g.images.map(img => img === imgUrl ? tonbandUrl : img)
+            };
+          }
+          return g;
+        }));
+        // Setze imgUrl auf die neue URL
+        imgUrl = tonbandUrl;
+      }
+      
+      // Wenn es eine Partycrasher-URL ist, konvertiere sie zu einer tonband-URL
+      if (imgUrl.includes("/Partycrasher/uploads/")) {
+        // Ersetze nur für die Anzeige
+        const tonbandUrl = imgUrl.replace("https://www.tubox.de/Partycrasher/uploads/", "https://www.tubox.de/tonband/uploads/");
+        console.log("Partycrasher URL konvertiert zu tonband URL:", tonbandUrl);
+        // Aktualisiere die URL in der Galerie
+        setGalleries(galleries => galleries.map(g => {
+          if (g.name === galleryName) {
+            return {
+              ...g,
+              images: g.images.map(img => img === imgUrl ? tonbandUrl : img)
+            };
+          }
+          return g;
+        }));
+        // Setze imgUrl auf die neue URL
+        imgUrl = tonbandUrl;
+      }
+      
+      // Extrahiere den relativen Pfad
+      cleanUrl = imgUrl.replace("https://www.tubox.de/tonband/uploads/", "");
+      const urlParts = cleanUrl.split("/");
+      const year = urlParts[0];
+      const gallery = urlParts[1];
+      const filename = urlParts.slice(2).join("/");
+      const res = await fetch("/api/delete-image", {
+        method: "POST",
+        headers: {
+          "X-API-TOKEN": process.env.NEXT_PUBLIC_TONBAND_API_TOKEN || "mysecrettoken",
+        },
+        body: JSON.stringify({ year, gallery, filename })
+      });
+      if (!res.ok) throw new Error("Fehler beim Löschen des Bildes");
+      setGalleries(galleries => galleries.map(g => g.name === galleryName ? { ...g, images: g.images.filter(img => img !== imgUrl) } : g));
+      setSuccessMsg("Bild gelöscht.");
+      
+      // Erfolgsmeldung nach 3 Sekunden ausblenden
+      setTimeout(() => setSuccessMsg(""), 3000);
+    } catch (e: any) {
+      setError(e.message);
+      // Fehlermeldung nach 5 Sekunden ausblenden
+      setTimeout(() => setError(""), 5000);
+    } finally {
+      setImgDeleting(d => ({...d, [imgUrl]: false}));
+    }
+  };
+
+  // Galerie löschen
+  const handleDeleteGallery = async (galleryName: string) => {
+    if (!confirm(`Galerie '${galleryName}' wirklich löschen?`)) return;
+    setGalleryDeleting(prev => ({ ...prev, [galleryName]: true }));
+    try {
+      console.log(`Lösche Galerie: ${galleryName}`);
+      
+      // Verwende die neue API-Route zum Löschen von Galerien
+      const res = await fetch('/api/delete-gallery', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ galleryName })
+      });
+      
+      const data = await res.json();
+      console.log('Antwort vom Server:', data);
+      
+      if (!res.ok) {
+        const errorMsg = data.error || (data.details ? JSON.stringify(data.details) : 'Unbekannter Fehler');
+        throw new Error(`Fehler beim Löschen der Galerie: ${errorMsg}`);
+      }
+      
+      // Aktualisiere die Galerie-Liste
+      setGalleries(galleries => galleries.filter(g => g.name !== galleryName));
+      setSuccessMsg(`Galerie '${galleryName}' erfolgreich gelöscht.`);
+      
+      // Erfolgsmeldung nach 3 Sekunden ausblenden
+      setTimeout(() => setSuccessMsg(""), 3000);
+    } catch (e: any) {
+      console.error('Fehler beim Löschen der Galerie:', e);
+      setError(e.message);
+      // Fehlermeldung nach 5 Sekunden ausblenden
+      setTimeout(() => setError(""), 5000);
+    } finally {
+      setGalleryDeleting(prev => ({ ...prev, [galleryName]: false }));
+    }
+  };
+
+  // Upload-Logik
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) {
+      setFiles([]);
+      setPreviews([]);
+      return;
+    }
+    
+    const fileList = Array.from(e.target.files);
+    addFiles(fileList);
+  };
+
+  // Dateien hinzufügen (wird sowohl von handleFileChange als auch von handleDrop verwendet)
+  const addFiles = (fileList: File[]) => {
+    // Bestehende Dateien beibehalten und neue hinzufügen
+    setFiles(prevFiles => [...prevFiles, ...fileList]);
+    
+    // Vorschaubilder und -videos erstellen
+    const previewArray = fileList.map(file => ({
+      url: URL.createObjectURL(file),
+      type: file.type.startsWith('video/') ? 'video' as const : 'image' as const,
+      file: file
+    }));
+    setPreviews(prevPreviews => [...prevPreviews, ...previewArray]);
+  };
+
+  // Drag & Drop Funktionen
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const fileList = Array.from(e.dataTransfer.files);
+      // Nur Bild- und Videodateien akzeptieren
+      const mediaFiles = fileList.filter(file => 
+        file.type.startsWith('image/') || file.type.startsWith('video/'));
+      
+      if (mediaFiles.length > 0) {
+        addFiles(mediaFiles);
+      }
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!files.length || !year || !gallery || !kategorie) return;
+    setUploading(true);
+    setUploadResults([]);
+    setProgress(0);
+    const newResults: string[] = [];
+    
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("year", year);
+      formData.append("gallery", gallery);
+      formData.append("kategorie", kategorie);
+      
+      // Prüfen, ob es sich um ein Video handelt
+      const isVideo = file.type.startsWith('video/');
+      formData.append("mediaType", isVideo ? "video" : "image");
+      
+      try {
+        const res = await fetch("https://www.tubox.de/tonband/upload.php", {
+          method: "POST",
+          headers: {
+            "X-API-TOKEN": process.env.NEXT_PUBLIC_TONBAND_API_TOKEN || "mysecrettoken",
+          },
+          body: formData,
+        });
+        
+        const data = await res.json();
+        if (data.success) {
+          newResults.push(`✅ Upload erfolgreich! ${isVideo ? 'Video' : 'Bild'}-URL: ${data.url}`);
+        } else {
+          newResults.push(`❌ Fehler: ${data.error}`);
+        }
+      } catch (err) {
+        newResults.push("❌ Fehler beim Upload (Netzwerk oder CORS)");
+      }
+      
+      setProgress(Math.round(((i + 1) / files.length) * 100));
+    }
+    
+    setUploadResults(newResults);
+    setUploading(false);
+    setSuccessMsg("Upload abgeschlossen!");
+    fetchGalleries(); // Galerien neu laden
+    
+    // Upload-Formular zurücksetzen
+    setFiles([]);
+    setPreviews([]);
+  };
+
+  // Hilfsfunktion: WebDisk-URL zu tonband-URL konvertieren
+  const convertWebDiskUrl = (url: string): string => {
+    if (url && url.includes("/WebDisk/uploads/")) {
+      return url.replace("https://www.tubox.de/WebDisk/uploads/", "https://www.tubox.de/tonband/uploads/");
+    }
+    // Falls es noch Partycrasher-URLs gibt, diese auch konvertieren
+    if (url && url.includes("/Partycrasher/uploads/")) {
+      return url.replace("https://www.tubox.de/Partycrasher/uploads/", "https://www.tubox.de/tonband/uploads/");
+    }
+    return url;
+  };
+  
+  // Hilfsfunktion: Prüft, ob eine URL ein Video ist
+const isVideoUrl = (url: string): boolean => {
+  if (!url) return false;
+  
+  // Spezialbehandlung für die 3000/videos Galerie oder VIDEOS im Pfad
+  if (url.includes('/3000/videos/') || url.includes('/VIDEOS/') || url.includes('/Videos/')) {
+    console.log('Video in spezieller Galerie gefunden:', url);
+    return true;
+  }
+  
+  // Normalisiere die URL (entferne Query-Parameter und Anker)
+  let normalizedUrl = url;
+  if (normalizedUrl.includes('?')) {
+    normalizedUrl = normalizedUrl.split('?')[0];
+  }
+  if (normalizedUrl.includes('#')) {
+    normalizedUrl = normalizedUrl.split('#')[0];
+  }
+  
+  const lowercaseUrl = normalizedUrl.toLowerCase();
+  
+  // Prüfe auf bekannte Video-Dateiendungen
+  const videoExtensions = [
+    '.mp4', '.mov', '.webm', '.avi', '.mkv', '.wmv', 
+    '.m4v', '.mpg', '.mpeg', '.3gp', '.flv', '.f4v', '.swf'
+  ];
+  
+  // Prüfe, ob die URL mit einer der Video-Dateiendungen endet
+  const isVideo = videoExtensions.some(ext => lowercaseUrl.endsWith(ext));
+  
+  if (isVideo) {
+    console.log('Video erkannt:', url);
+  }
+  
+  return isVideo;
+};
+
+// Hilfsfunktion: Prüfe, ob eine URL ein Thumbnail ist
+const isThumbnailUrl = (url: string): boolean => {
+  if (!url) return false;
+  return url.toLowerCase().includes('_thumb.') || url.toLowerCase().includes('-thumb.') || url.toLowerCase().includes('gallery_thumb.');
+};
+
+// Hilfsfunktion: Prüfe, ob eine URL ein Galerie-Thumbnail ist
+const isGalleryThumbnail = (url: string): boolean => {
+  return url.includes('gallery_thumb.');
+};
+
+// Hilfsfunktion: Prüfe, ob eine Galerie eine Video-Galerie ist
+const isVideoGallery = (galleryName: string): boolean => {
+  return galleryName.includes('VIDEOS') || galleryName.includes('Videos') || galleryName.includes('videos');
+};
+
+// Hilfsfunktion: Generiere eine Video-Thumbnail-URL oder verwende den Fallback
+const getVideoThumbnail = (videoUrl: string): string => {
+  // Versuche, eine Thumbnail-URL zu generieren, wenn möglich
+  // Für jetzt verwenden wir ein Farbverlauf als Fallback
+  return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='240' viewBox='0 0 320 240'%3E%3Crect width='320' height='240' fill='%232a1208'/%3E%3Ctext x='160' y='120' font-family='Arial' font-size='16' fill='%23ff6b00' text-anchor='middle'%3EVideo%3C/text%3E%3C/svg%3E`;
+};
+
+// Hilfsfunktion: Erstes Bild einer Galerie als Vorschau verwenden
+const getGalleryThumb = (gallery: Gallery): string => {
+  if (gallery.images.length > 0) {
+    // Stelle sicher, dass das Thumbnail eine tonband-URL ist
+    const convertedUrl = convertWebDiskUrl(gallery.images[0]);
+    // Prüfe, ob es ein Bild ist (für Thumbnails bevorzugen wir Bilder)
+    const isVideo = isVideoUrl(convertedUrl);
+    
+    // Wenn das erste Element ein Video ist, suche nach einem Bild
+    if (isVideo && gallery.images.length > 1) {
+      for (let i = 1; i < gallery.images.length; i++) {
+        const imgUrl = convertWebDiskUrl(gallery.images[i]);
+        if (!isVideoUrl(imgUrl) && !isThumbnailUrl(imgUrl)) {
+          return imgUrl; // Erstes Nicht-Video und Nicht-Thumbnail zurückgeben
+        }
+      }
+    }
+    
+    return convertedUrl;
+  }
+  return getVideoThumbnail(''); // Fallback, wenn keine Bilder vorhanden sind
+};
+
+  // Automatisch Fehlermeldungen und Erfolgsmeldungen ausblenden
+  useEffect(() => {
+    if (error || successMsg) {
+      const timer = setTimeout(() => {
+        setError("");
+        setSuccessMsg("");
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error, successMsg]);
+  
+  return (
+    <AuthCheck requiredRole="admin">
+      <div className="admin-root">
+        {/* Header */}
+        <header className="admin-header">
+          <div className="admin-header-title">Ton.Band ADMIN</div>
+          <nav className="admin-header-nav">
+            {!isMobile && <VisitorStats />}
+            <UserStatus />
+          </nav>
+        </header>
+
+        {/* Feedback-Bereich */}
+        {(error || successMsg) && (
+          <div className={`admin-feedback-msg${error ? ' error' : ' success'}`}>
+            {error || successMsg}
+          </div>
+        )}
+
+        <main className="admin-main-row">
+          {/* Upload-Bereich */}
+          <section className="admin-upload-box-col">
+            {/* Upload-Card-Inhalt kommt hier rein (aus dem bisherigen Upload-Bereich) */}
+            {/* ... */}
+          </section>
+          {/* Galerie-Bereich */}
+          <section className="admin-gallery-list-box">
+            <h2>Galerien</h2>
+            {loading && <div className="admin-gallery-loading">Lade Galerien...</div>}
+            {!loading && galleries.length === 0 && <div>Keine Galerien gefunden.</div>}
+            <div className="admin-gallery-list">
+          {galleries.map(gallery => {
+              const isOpen = openGallery === gallery.name;
+              const thumb = getGalleryThumb(gallery);
+              return (
+                <div key={gallery.name} className={`admin-gallery-box${isOpen ? ' open' : ''}`}>
+                  <div 
+                    onClick={() => toggleGallery(gallery.name)}
+                    className="admin-gallery-header"
+                  >
+                    {thumb ? (
+                      <div className="admin-gallery-thumb">
+                        <img src={thumb} alt="thumb" className="admin-gallery-thumb-img" />
+                        {isVideoUrl(thumb) && (
+                          <div className="admin-gallery-thumb-overlay">
+                            <span className="admin-gallery-thumb-overlay-icon">🎥</span>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="admin-gallery-thumb-empty">Keine Medien</div>
+                    )}
+                    <div className="admin-gallery-header-info">
+                      <div className="admin-gallery-title">{gallery.name}</div>
+                      <div className="admin-gallery-meta">
+                        {gallery.images.length} Medien
+                        {gallery.images.some(img => isVideoUrl(img)) && (
+                          <span className="admin-gallery-meta-special">🎬</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="admin-gallery-actions">
+                      <button
+                        onClick={e => { e.stopPropagation(); handleEditMeta(gallery.name); }}
+                        className="button"
+                      >
+                        Bearbeiten
+                      </button>
+                      <button
+                        onClick={e => { e.stopPropagation(); handleDeleteGallery(gallery.name); }}
+                        disabled={!!galleryDeleting[gallery.name]}
+                        className="button"
+                      >
+                        {galleryDeleting[gallery.name] ? 'Lösche...' : 'Löschen'}
+                      </button>
+                      <span className={`admin-gallery-arrow${isOpen ? ' open' : ''}`}>{isOpen ? '▲' : '▼'}</span>
+                    </div>
+                  </div>
+                  
+                  {/* Ausgeklappte Bilder */}
+                  {isOpen && (
+                    <div className="admin-gallery-media">
+                      {gallery.images.length === 0 && <div className="admin-gallery-media-empty">Keine Medien in dieser Galerie</div>}
+                      {gallery.images.map(img => {
+                        // Konvertiere WebDisk-URLs zu Partycrasher-URLs
+                        const convertedImg = convertWebDiskUrl(img);
+                        // Prüfe, ob es sich um ein Video handelt
+                        const isVideo = isVideoUrl(convertedImg);
+                        
+                        // Debug-Ausgabe für jedes Element in der Galerie
+                        console.log(`Galerie-Element: ${convertedImg}, isVideo: ${isVideo}`);
+                        
+                        return (
+                          <div key={convertedImg} className="admin-media-thumb">
+                            {isVideo ? (
+                              <div className="admin-video-container">
+                                {/* Verwende ein dynamisch generiertes Thumbnail für Videos */}
+                                <div className="admin-video-thumbnail-container">
+                                  <img 
+                                    src={(() => {
+                                      // Direkter Pfad zum Thumbnail generieren
+                                      if (convertedImg.includes('/tonband/uploads/')) {
+                                        try {
+                                          const urlPath = convertedImg.split('/tonband/uploads/')[1];
+                                          const pathParts = urlPath.split('/');
+                                          
+                                          if (pathParts.length >= 3) {
+                                            const year = pathParts[0];
+                                            const gallery = pathParts[1];
+                                            const videoName = pathParts[pathParts.length - 1].split('.')[0];
+                                            
+                                            // Direkter Pfad zum video_thumb-Ordner
+                                            return `https://www.tubox.de/tonband/uploads/${year}/${gallery}/video_thumb/${videoName}_thumb.jpg`;
+                                          }
+                                        } catch (error) {
+                                          console.error('Fehler beim Generieren des Thumbnail-Pfads:', error);
+                                        }
+                                      }
+                                      return getVideoThumbnail(convertedImg);
+                                    })()}
+                                    alt="Video Thumbnail"
+                                    className="admin-media-thumb-img"
+                                    onError={(e) => {
+                                      // Wenn das Thumbnail nicht geladen werden kann, versuche verschiedene Fallbacks
+                                      const target = e.target as HTMLImageElement;
+                                      const currentSrc = target.src;
+                                      target.onerror = null; // Verhindere endlose Fehler-Loops
+                                      
+                                      console.log('Thumbnail konnte nicht geladen werden:', currentSrc);
+                                      
+                                      // Extrahiere Informationen aus der aktuellen URL und Pfadkomponenten
+                                      const videoUrlPath = convertedImg.split('/tonband/uploads/')[1];
+                                      const videoPathParts = videoUrlPath.split('/');
+                                      const videoYear = videoPathParts[0];
+                                      const videoGallery = videoPathParts[1];
+                                      const videoFileName = videoPathParts[videoPathParts.length - 1].split('.')[0];
+                                      
+                                      console.log('Video-Komponenten:', { videoYear, videoGallery, videoFileName });
+                                      
+                                      if (currentSrc.includes('/video_thumb/')) {
+                                        // Versuche zuerst im thumb/-Ordner nach einem Thumbnail zu suchen
+                                        const thumbPath = `https://www.tubox.de/tonband/uploads/${videoYear}/${videoGallery}/thumb/${videoFileName}_thumb.jpg`;
+                                        console.log('Versuche Thumbnail im thumb/-Ordner:', thumbPath);
+                                        target.src = thumbPath;
+                                      } else if (currentSrc.includes('/thumb/')) {
+                                        // Wenn der thumb/-Pfad nicht funktioniert, versuche den alten Pfad
+                                        const oldPath = `https://www.tubox.de/tonband/uploads/${videoYear}/${videoGallery}/${videoFileName}_thumb.jpg`;
+                                        console.log('Versuche Legacy-Pfad:', oldPath);
+                                        target.src = oldPath;
+                                      } else {
+                                        // Wenn das auch nicht funktioniert, generiere ein SVG
+                                        console.log('Verwende SVG-Fallback');
+                                        target.src = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='240' viewBox='0 0 320 240'%3E%3Crect width='320' height='240' fill='%232a1208'/%3E%3Ctext x='160' y='120' font-family='Arial' font-size='16' fill='%23ff6b00' text-anchor='middle'%3EVideo%3C/text%3E%3C/svg%3E`;
+                                      }
+                                    }}
+                                  />
+                                </div>
+                                
+                                {/* Play-Button-Overlay */}
+                                <div 
+                                  className="admin-video-play-overlay"
+                                  onClick={() => {
+                                    // Öffne das Video in einem neuen Tab
+                                    window.open(convertedImg, '_blank');
+                                  }}
+                                >
+                                  <div className="admin-video-play-button">
+                                    <div className="admin-video-play-icon">▶</div>
+                                  </div>
+                                </div>
+                                {/* Thumbnail-Button für Videos */}
+                                <div 
+                                  className="admin-video-thumbnail-button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedVideoForThumbnail({url: convertedImg, galleryName: gallery.name});
+                                  }}
+                                >
+                                  Thumbnail
+                                </div>
+                              </div>
+                            ) : (
+                              <img 
+                                src={convertedImg} 
+                                alt="thumb" 
+                                style={{ 
+                                  width: '100%', 
+                                  height: '100%', 
+                                  objectFit: "cover", 
+                                  borderRadius: 8, 
+                                  filter: imgDeleting[img] ? 'grayscale(1) blur(2px)' : 'none', 
+                                  opacity: imgDeleting[img] ? 0.4 : 1, 
+                                  transition: 'filter 0.2s, opacity 0.2s' 
+                                }} 
+                              />
+                            )}
+                            <button
+                              onClick={() => handleDeleteImage(gallery.name, convertedImg)}
+                              disabled={!!imgDeleting[img] || !!imgDeleting[convertedImg]}
+                              style={{
+                                position: 'absolute', 
+                                top: 6, 
+                                right: 6, 
+                                background: '#232634', 
+                                color: '#bbbbbb', 
+                                border: '1px solid #232634', 
+                                borderRadius: '50%', 
+                                width: 28, 
+                                height: 28, 
+                                cursor: 'pointer', 
+                                fontWeight: 800, 
+                                fontSize: 18, 
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.15)', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center', 
+                                opacity: imgDeleting[img] ? 0.5 : 0.95, 
+                                transition: 'opacity 0.18s', 
+                                zIndex: 2
+                              }}
+                              title={isVideo ? "Video löschen" : "Bild löschen"}
+                            >
+                              {imgDeleting[img] || imgDeleting[convertedImg] ? <span style={{fontSize:16}}>⏳</span> : <span style={{fontSize:19}}>🗑️</span>}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        
+        {/* Rechte Spalte: Upload */}
+        <div className="admin-upload-box">
+          <h2 className="admin-upload-title">Upload</h2>
+          
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 16, color: '#00e1ff' }}>Jahr:</label>
+            <input
+              type="text"
+              value={year}
+              onChange={e => setYear(e.target.value)}
+              placeholder="z.B. 2025"
+              className="admin-input"
+            />
+            <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 16, color: '#00e1ff' }}>Galerie:</label>
+            <input
+              type="text"
+              value={gallery}
+              onChange={e => setGallery(e.target.value)}
+              placeholder="z.B. TestUpload"
+              className="admin-input"
+            />
+            <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 16, color: '#00e1ff' }}>Kategorie:</label>
+            <input
+              type="text"
+              value={kategorie}
+              onChange={e => setKategorie(e.target.value)}
+              placeholder="z.B. Natur"
+              className="admin-input"
+            />
+          </div>
+          
+          <div 
+            style={{ 
+              marginBottom: 16,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center'
+            }}
+          >
+            <div
+              onDragEnter={handleDragEnter}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              style={{
+                width: '100%',
+                padding: '30px 20px',
+                border: `3px dashed ${isDragging ? '#ff6b00' : '#888'}`,
+                borderRadius: 12,
+                backgroundColor: isDragging ? 'rgba(255, 107, 0, 0.1)' : '#2a1208',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                marginBottom: 16
+              }}
+              onClick={() => document.getElementById('file-upload')?.click()}
+            >
+              <div style={{ fontSize: 40, marginBottom: 10 }}>📁</div>
+              <p style={{ margin: 0, color: '#00e1ff', fontWeight: 600, fontSize: 16, textAlign: 'center' }}>
+                {isDragging 
+                  ? 'Dateien hier ablegen...' 
+                  : 'Dateien hierher ziehen oder klicken zum Auswählen'}
+              </p>
+              <p style={{ margin: '8px 0 0', color: '#cccccc', fontSize: 14, textAlign: 'center' }}>
+                Unterstützt werden Bilder und Videos
+              </p>
+              <input
+                id="file-upload"
+                type="file"
+                accept="image/*,video/*"
+                multiple
+                onChange={handleFileChange}
+                style={{ display: 'none' }}
+              />
+            </div>
+            {files.length > 0 && (
+              <div style={{ alignSelf: 'flex-start', color: '#00e1ff', fontSize: 15, marginBottom: 8, fontWeight: 500 }}>
+                {files.length === 1 ? files[0].name : `${files.length} Dateien ausgewählt`}
+              </div>
+            )}
+          </div>
+          
+          {/* Preview-Medien */}
+          {previews.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 16 }}>
+              {previews.map((preview, idx) => (
+                <div key={idx} style={{ position: 'relative', display: 'inline-block' }}>
+                  {preview.type === 'image' ? (
+                    <img src={preview.url} alt={`Preview ${idx + 1}`} style={{ width: 90, height: 70, objectFit: 'cover', borderRadius: 6, border: '2px solid #00e1ff', background: '#232634' }} />
+                  ) : (
+                    <div style={{ position: 'relative', width: 90, height: 70, borderRadius: 6, border: '2px solid #00e1ff', background: '#232634', overflow: 'hidden' }}>
+                      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.7))' }}>
+                        <div style={{ color: '#00e1ff', fontSize: '24px', textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>▶</div>
+                      </div>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFiles(files => files.filter((_, i) => i !== idx));
+                      setPreviews(previews => previews.filter((_, i) => i !== idx));
+                    }}
+                    style={{
+                      position: 'absolute', top: 2, right: 2, background: '#232634', color: '#bbbbbb', border: '1px solid #232634', borderRadius: '50%', width: 22, height: 22, cursor: 'pointer', fontWeight: 700, fontSize: 15, lineHeight: '22px', padding: 0,
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.10)'
+                    }}
+                    aria-label={`Medium ${idx + 1} entfernen`}
+                    title={`Medium entfernen`}
+                  >×</button>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          <button 
+            onClick={handleUpload} 
+            disabled={!files.length || !year || !gallery || !kategorie || uploading} 
+            className="admin-upload-btn"
+          >
+            {uploading ? "Hochladen..." : `Upload${files.length > 1 ? ` (${files.length})` : ''} starten`}
+          </button>
+          
+          {/* Fortschrittsbalken */}
+          {uploading && (
+            <div style={{ margin: '18px 0 0 0', width: '100%', background: '#232634', borderRadius: 8, height: 18, boxShadow: '0 2px 8px rgba(0,0,0,0.07)', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ width: `${progress}%`, background: '#00e1ff', height: '100%', borderRadius: 8, transition: 'width 0.22s' }} />
+              <div style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', color: '#bbbbbb', fontWeight: 700, fontSize: 13, textAlign: 'center', lineHeight: '18px', letterSpacing: 1, userSelect: 'none' }}>
+                {progress}% ({Math.round(files.length * progress / 100)} / {files.length})
+              </div>
+            </div>
+          )}
+          
+          {/* Upload-Ergebnisse */}
+          <div style={{ marginTop: 24, minHeight: 32 }}>
+            {uploadResults.map((res, idx) => (
+              <div key={idx} style={{ color: '#00e1ff', fontSize: 15, marginBottom: 4 }}>{res}</div>
+            ))}
+            {uploadResults.map((res, idx) => {
+              if (!res.startsWith("✅")) return null;
+              
+              // Extrahiere die URL aus der Erfolgsmeldung
+              let url = "";
+              if (res.includes("Video-URL: ")) {
+                url = res.split("Video-URL: ")[1];
+              } else if (res.includes("Bild-URL: ")) {
+                url = res.split("Bild-URL: ")[1];
+              } else {
+                return null;
+              }
+              
+              // Prüfe, ob es ein Video ist
+              const isVideo = isVideoUrl(url);
+              
+              return isVideo ? (
+                <div key={"vid-"+idx} style={{ marginTop: 16, position: 'relative', maxWidth: "100%" }}>
+                  <video 
+                    src={url} 
+                    controls 
+                    style={{ width: "100%", maxHeight: 400, borderRadius: 8 }} 
+                  />
+                </div>
+              ) : (
+                <img 
+                  key={"img-"+idx} 
+                  src={url} 
+                  alt={`Upload Preview ${idx + 1}`} 
+                  style={{ marginTop: 16, maxWidth: "100%", borderRadius: 8 }} 
+                />
+              );
+            })}
+          </div>
+        </div>
+      </div>
+      
+      {/* Metadaten-Editor Modal */}
+      {editingGallery && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: '#232634',
+            borderRadius: 16,
+            padding: 32,
+            width: '90%',
+            maxWidth: 600,
+            maxHeight: '90vh',
+            overflow: 'auto',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.2)'
+          }}>
+            <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 24, color: '#00e1ff' }}>Galerie bearbeiten</h2>
+            <p style={{ marginBottom: 16, color: '#888' }}>{editingGallery}</p>
+            
+            {metaLoading && (
+              <div style={{ padding: '20px 0', textAlign: 'center', color: '#00e1ff' }}>
+                <div style={{ fontSize: 18, marginBottom: 10 }}>Lade Metadaten...</div>
+                <div style={{ width: 50, height: 50, border: '4px solid #ff6b00', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 1s linear infinite' }}></div>
+                <style jsx>{`
+                  @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                  }
+                `}</style>
+              </div>
+            )}
+            
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 16, color: '#00e1ff' }}>Jahr:</label>
+              <input
+                type="text"
+                value={editingMeta.jahr}
+                onChange={e => setEditingMeta({...editingMeta, jahr: e.target.value})}
+                placeholder="Jahr"
+                style={{ width: '100%', marginBottom: 12, padding: '10px 14px', fontSize: 18, borderRadius: 6, border: '2px solid #888', background: '#fff', color: '#232634', outline: 'none', fontWeight: 500 }}
+              />
+            </div>
+            
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 16, color: '#00e1ff' }}>Galerie:</label>
+              <input
+                type="text"
+                value={editingMeta.galerie}
+                onChange={e => setEditingMeta({...editingMeta, galerie: e.target.value})}
+                placeholder="Galeriename"
+                style={{ width: '100%', marginBottom: 12, padding: '10px 14px', fontSize: 18, borderRadius: 6, border: '2px solid #888', background: '#fff', color: '#232634', outline: 'none', fontWeight: 500 }}
+              />
+            </div>
+            
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 16, color: '#00e1ff' }}>Kategorie:</label>
+              <input
+                type="text"
+                value={editingMeta.kategorie}
+                onChange={e => setEditingMeta({...editingMeta, kategorie: e.target.value})}
+                placeholder="Kategorie"
+                style={{ width: '100%', marginBottom: 12, padding: '10px 14px', fontSize: 18, borderRadius: 6, border: '2px solid #888', background: '#fff', color: '#232634', outline: 'none', fontWeight: 500 }}
+              />
+            </div>
+            
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 16, color: '#00e1ff' }}>Tags:</label>
+              <div style={{ display: 'flex', marginBottom: 8 }}>
+                <input
+                  type="text"
+                  value={newTag}
+                  onChange={e => setNewTag(e.target.value)}
+                  placeholder="Neuer Tag"
+                  style={{ flex: 1, padding: '10px 14px', fontSize: 16, borderRadius: '6px 0 0 6px', border: '2px solid #888', borderRight: 'none', background: '#fff', color: '#232634', outline: 'none' }}
+                  onKeyDown={e => e.key === 'Enter' && addTag()}
+                />
+                <button
+                  onClick={addTag}
+                  style={{ padding: '0 16px', fontSize: 16, borderRadius: '0 6px 6px 0', background: '#00e1ff', color: '#bbbbbb', border: '1px solid #232634', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  +
+                </button>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {editingMeta.tags.map(tag => (
+                  <div key={tag} style={{ background: '#00e1ff', color: '#bbbbbb', padding: '4px 10px', borderRadius: 16, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {tag}
+                    <button
+                      onClick={() => removeTag(tag)}
+                      style={{ background: 'none', border: '1px solid #232634', color: '#bbbbbb', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 16, height: 16, padding: 0 }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <p style={{ fontSize: 14, color: '#888', marginTop: 6 }}>
+                Hinweis: Die Kategorie aus dem Upload wird als Tag angezeigt.
+              </p>
+              
+              {/* Zugriffsoptionen */}
+              <div style={{ marginBottom: 16, marginTop: 24 }}>
+                <label style={{ display: 'block', marginBottom: 10, fontWeight: 600, fontSize: 16, color: '#00e1ff' }}>
+                  Zugriffsberechtigung:
+                </label>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {/* Öffentlich */}
+                  <label style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 10, 
+                    cursor: 'pointer',
+                    padding: '10px 14px',
+                    borderRadius: 6,
+                    border: '2px solid',
+                    borderColor: editingMeta.accessType === 'public' ? '#4ade80' : '#444',
+                    background: editingMeta.accessType === 'public' ? 'rgba(74, 222, 128, 0.1)' : 'transparent'
+                  }}>
+                    <input 
+                      type="radio" 
+                      name="accessType" 
+                      value="public"
+                      checked={editingMeta.accessType === 'public'}
+                      onChange={() => setEditingMeta({...editingMeta, accessType: 'public'})}
+                      style={{ accentColor: '#4ade80' }}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 600, color: '#4ade80' }}>Öffentlich</div>
+                      <div style={{ fontSize: 14, color: '#aaa' }}>Jeder kann diese Galerie sehen</div>
+                    </div>
+                  </label>
+                  
+                  {/* Passwortgeschützt */}
+                  <label style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 10, 
+                    cursor: 'pointer',
+                    padding: '10px 14px',
+                    borderRadius: 6,
+                    border: '2px solid',
+                    borderColor: editingMeta.accessType === 'password' ? '#ff6b00' : '#444',
+                    background: editingMeta.accessType === 'password' ? 'rgba(255, 107, 0, 0.1)' : 'transparent'
+                  }}>
+                    <input 
+                      type="radio" 
+                      name="accessType" 
+                      value="password"
+                      checked={editingMeta.accessType === 'password'}
+                      onChange={() => setEditingMeta({...editingMeta, accessType: 'password'})}
+                      style={{ accentColor: '#ff6b00' }}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 600, color: '#00e1ff' }}>Passwortgeschützt</div>
+                      <div style={{ fontSize: 14, color: '#aaa' }}>Zugriff nur mit Passwort</div>
+                    </div>
+                  </label>
+                  
+                  {/* Nur für Admins */}
+                  <label style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 10, 
+                    cursor: 'pointer',
+                    padding: '10px 14px',
+                    borderRadius: 6,
+                    border: '2px solid',
+                    borderColor: editingMeta.accessType === 'internal' ? '#ef4444' : '#444',
+                    background: editingMeta.accessType === 'internal' ? 'rgba(239, 68, 68, 0.1)' : 'transparent'
+                  }}>
+                    <input 
+                      type="radio" 
+                      name="accessType" 
+                      value="internal"
+                      checked={editingMeta.accessType === 'internal'}
+                      onChange={() => setEditingMeta({...editingMeta, accessType: 'internal'})}
+                      style={{ accentColor: '#ef4444' }}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 600, color: '#ef4444' }}>Nur für Admins</div>
+                      <div style={{ fontSize: 14, color: '#aaa' }}>Nur Administratoren können diese Galerie sehen</div>
+                    </div>
+                  </label>
+                </div>
+                
+                {/* Passwortfeld (nur anzeigen, wenn 'password' ausgewählt ist) */}
+                {editingMeta.accessType === 'password' && (
+                  <div style={{ marginTop: 16 }}>
+                    <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 16, color: '#00e1ff' }}>
+                      Passwort:
+                    </label>
+                    <input
+                      type="text"
+                      value={editingMeta.password || ''}
+                      onChange={e => setEditingMeta({...editingMeta, password: e.target.value})}
+                      placeholder="Passwort eingeben"
+                      style={{ 
+                        width: '100%', 
+                        padding: '10px 14px', 
+                        fontSize: 16, 
+                        borderRadius: 6, 
+                        border: '2px solid #00e1ff', 
+                        background: '#fff', 
+                        color: '#232634', 
+                        outline: 'none' 
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+              
+              {/* Galerie-Thumbnail-Button nur für Video-Galerien anzeigen */}
+              {isVideoGallery(editingGallery) && (
+                <div style={{ marginTop: 20, borderTop: '1px solid #444', paddingTop: 20 }}>
+                  <h3 style={{ fontSize: 18, marginBottom: 10, color: '#00e1ff' }}>Galerie-Thumbnail</h3>
+                  <p style={{ fontSize: 14, color: '#ccc', marginBottom: 15 }}>
+                    Lade ein Haupt-Thumbnail für diese Video-Galerie hoch. Dieses wird in der Galerie-Übersicht angezeigt.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setIsGalleryThumbnailUpload(true);
+                      setSelectedVideoForThumbnail({
+                        url: `https://www.tubox.de/tonband/uploads/${editingGallery}/gallery_thumb.jpg`,
+                        galleryName: editingGallery
+                      });
+                      setThumbnailModalOpen(true);
+                    }}
+                    style={{
+                      padding: '8px 16px',
+                      fontSize: 14,
+                      borderRadius: 8,
+                      background: '#232634',
+                      color: '#bbbbbb',
+                      border: '1px solid #00e1ff',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8
+                    }}
+                  >
+                    <span style={{ fontSize: 18 }}>🖼️</span> Galerie-Thumbnail hochladen
+                  </button>
+                </div>
+              )}
+            </div>
+            
+
+            
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 16, marginTop: 20 }}>
+              <button
+                onClick={() => setEditingGallery(null)}
+                style={{ padding: '10px 24px', fontSize: 16, borderRadius: 8, background: '#374151', color: '#bbbbbb', border: '1px solid #232634', fontWeight: 700, cursor: 'pointer' }}
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={saveMeta}
+                disabled={metaSaving}
+                style={{ padding: '10px 24px', fontSize: 16, borderRadius: 8, background: '#00e1ff', color: '#bbbbbb', border: '1px solid #232634', fontWeight: 700, cursor: metaSaving ? 'not-allowed' : 'pointer', opacity: metaSaving ? 0.7 : 1 }}
+              >
+                {metaSaving ? 'Speichern...' : 'Speichern'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      </div>
+      {/* Modal für Thumbnail-Upload */}
+      {selectedVideoForThumbnail && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.8)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            backgroundColor: '#232634',
+            borderRadius: '8px',
+            padding: '24px',
+            width: '90%',
+            maxWidth: '500px',
+            boxShadow: '0 0 30px rgba(0, 225, 255, 0.18)',
+            border: '1px solid #00e1ff'
+          }}>
+            <h3 style={{ marginTop: 0, color: '#00e1ff' }}>Vorschaubild für Video hochladen</h3>
+            <p style={{ marginBottom: '20px', color: '#ccc' }}>
+              Wähle ein Vorschaubild für das Video aus. Das Bild wird im selben Ordner wie das Video gespeichert und automatisch als Vorschau verwendet.
+            </p>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <p style={{ fontSize: '14px', color: '#aaa' }}>
+                Video: {selectedVideoForThumbnail.url.split('/').pop()}
+              </p>
+              
+              <div style={{ 
+                marginTop: '10px',
+                padding: '15px',
+                border: '2px dashed #00e1ff',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(0, 225, 255, 0.08)',
+                textAlign: 'center',
+                cursor: 'pointer'
+              }} onClick={() => document.getElementById('thumbnail-upload')?.click()}>
+                {thumbnailFile ? (
+                  <div>
+                    <p style={{ margin: '0 0 10px', color: '#bbbbbb' }}>{thumbnailFile.name}</p>
+                    <img 
+                      src={URL.createObjectURL(thumbnailFile)} 
+                      alt="Vorschau" 
+                      style={{ maxWidth: '100%', maxHeight: '200px', borderRadius: '4px' }} 
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ fontSize: '40px', marginBottom: '10px' }}>🖼️</div>
+                    <p style={{ margin: 0, color: '#bbbbbb' }}>Klicke, um ein Bild auszuwählen</p>
+                  </div>
+                )}
+              </div>
+              
+              <input
+                id="thumbnail-upload"
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  if (e.target.files && e.target.files.length > 0) {
+                    setThumbnailFile(e.target.files[0]);
+                  }
+                }}
+              />
+            </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                onClick={() => {
+                  setSelectedVideoForThumbnail(null);
+                  setThumbnailFile(null);
+                  setIsGalleryThumbnailUpload(false);
+                }}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '4px',
+                  border: '1px solid #232634',
+                  backgroundColor: '#374151',
+                  color: 'white',
+                  cursor: 'pointer'
+                }}
+              >
+                Abbrechen
+              </button>
+              
+              <button
+                onClick={async () => {
+                  if (!thumbnailFile) return;
+                  
+                  try {
+                    setUploadingThumbnail(true);
+                    
+                    // Extrahiere Jahr und Galerie aus der URL
+                    const urlParts = selectedVideoForThumbnail.url.replace('https://www.tubox.de/tonband/uploads/', '').split('/');
+                    const year = urlParts[0];
+                    const gallery = urlParts[1];
+                    
+                    // Finde die ursprüngliche Kategorie
+                    const galleryObj = galleries.find(g => g.name === selectedVideoForThumbnail.galleryName);
+                    const originalKategorie = galleryObj?.meta?.kategorie || '';
+                    
+                    // FormData erstellen
+                    const formData = new FormData();
+                    formData.append('file', thumbnailFile);
+                    formData.append('year', year);
+                    formData.append('gallery', gallery);
+                    formData.append('kategorie', originalKategorie); // Verwende die ursprüngliche Kategorie
+                    
+                    // Unterschiedliche Dateinamen für Galerie-Thumbnails und Video-Thumbnails
+                    let thumbnailName;
+                    if (isGalleryThumbnailUpload) {
+                      // Für Galerie-Thumbnails verwenden wir einen festen Namen
+                      thumbnailName = 'gallery_thumb.jpg';
+                      formData.append('isGalleryThumb', 'true');
+                    } else {
+                      // Für Video-Thumbnails verwenden wir den Video-Namen + _thumb
+                      const videoName = urlParts[urlParts.length - 1];
+                      thumbnailName = videoName.split('.')[0] + '_thumb.jpg';
+                      formData.append('isVideoThumb', 'true');
+                    }
+                    formData.append('customFilename', thumbnailName);
+                    
+                    // Thumbnail hochladen
+                    const res = await fetch('https://www.tubox.de/tonband/upload.php', {
+                      method: 'POST',
+                      headers: {
+                        'X-API-TOKEN': process.env.NEXT_PUBLIC_TONBAND_API_TOKEN || 'mysecrettoken',
+                      },
+                      body: formData
+                    });
+                    
+                    const data = await res.json();
+                    
+                    if (data.success) {
+                      setSuccessMsg(`Thumbnail erfolgreich hochgeladen: ${data.url}`);
+                      setThumbnailModalOpen(false);
+                      setSelectedVideoForThumbnail(null);
+                      setThumbnailFile(null);
+                      setIsGalleryThumbnailUpload(false);
+                      
+                      // Aktualisiere die Galerie-Ansicht
+                      fetchGalleries();
+                    } else {
+                      setError(`Fehler beim Hochladen des Thumbnails: ${data.error || 'Unbekannter Fehler'}`);
+                    }
+                  } catch (err: any) {
+                    setError(`Fehler beim Hochladen: ${err.message || 'Unbekannter Fehler'}`);
+                  } finally {
+                    setUploadingThumbnail(false);
+                  }
+                }}
+                disabled={!thumbnailFile || uploadingThumbnail}
+                className={`admin-thumbnail-upload-button${(!thumbnailFile || uploadingThumbnail) ? ' disabled' : ''}`}
+              >
+                {uploadingThumbnail ? 'Wird hochgeladen...' : 'Hochladen'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+          </div>
+          </section>
+        </main>
+        <footer className="admin-footer">
+          Made with <span className="admin-footer-heart">♥</span> for ton.band sessions
+        </footer>
+      </div>
+    </AuthCheck>
+  );
+}

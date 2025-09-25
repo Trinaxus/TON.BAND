@@ -1,0 +1,121 @@
+/* Globale Styles für Galerie-Bereich */
+
+/* Galerie-Ansicht Styles */
+.gallery-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
+  padding: 20px;
+  padding-bottom: 120px; /* Deutlich erhöhter Abstand unten für den Footer */
+  max-width: 1400px;
+  margin: 0 auto;
+  margin-bottom: 120px; /* Deutlich erhöhter Abstand zum Footer */
+}
+
+.gallery-item {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(30, 30, 30, 0.7);
+  border: 1px solid rgba(0, 225, 255, 0.1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 225, 255, 0.05);
+  transition: all 0.3s ease;
+}
+
+.gallery-item:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 24px rgba(0, 225, 255, 0.2), 0 0 0 1px rgba(0, 225, 255, 0.2);
+  border-color: rgba(0, 225, 255, 0.3);
+}
+
+.gallery-item:hover .gallery-caption {
+  transform: translateY(-5px);
+}
+
+.gallery-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: filter 0.3s ease;
+}
+
+.gallery-caption {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 12px 16px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.7) 70%, transparent);
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  transition: transform 0.3s ease;
+  z-index: 1;
+}
+
+.gallery-title {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.gallery-subtitle {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+/* Responsive Anpassungen */
+@media (max-width: 768px) {
+  .gallery-container {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+    padding: 12px;
+  }
+  
+  .gallery-caption {
+    padding: 8px 12px;
+  }
+  
+  .gallery-title {
+    font-size: 14px;
+  }
+  
+  .gallery-subtitle {
+    font-size: 11px;
+  }
+}
+
+/* Explizite Stile für die Galerie-Karten mit hoher Spezifität */
+div[class].gallery-card-wrapper,
+div[class*="galleryCard"],
+.galleryGrid > div,
+.gallery-item,
+[class].galleryCard {
+  border: 0.5px solid #00fffb43 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 2px 10px rgba(0, 225, 255, 0) !important;
+  overflow: hidden !important;
+}
+
+/* Hover-Effekte mit hoher Spezifität */
+div[class].gallery-card-wrapper:hover,
+div[class*="galleryCard"]:hover,
+.galleryGrid > div:hover,
+.gallery-item:hover,
+[class].galleryCard:hover {
+  transform: translateY(-5px) !important;
+  border: 1px solid #00eeff76 !important;
+  box-shadow: 0 0px 20px rgba(0, 225, 255, 0.324) !important;
+}
+
+/* Stil für passwortgeschützte Karten */
+div[data-password-protected="true"],
+[class*="galleryCard"][data-password-protected="true"],
+.gallery-card-wrapper[data-password-protected="true"],
+.gallery-item[data-password-protected="true"] {
+  position: relative;
+}
+
+/* Der Logo-Overlay wird jetzt direkt in der PasswordProtectedImage-Komponente implementiert */

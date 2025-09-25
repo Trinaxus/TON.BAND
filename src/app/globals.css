@@ -1,0 +1,701 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Header Button Styles */
+.header-button {
+  border-radius: 15px !important;
+  overflow: hidden;
+  background-color: rgba(0, 225, 255, 0.1) !important;
+  transition: background-color 0.2s ease-in-out !important;
+}
+
+.header-button:hover {
+  background-color: rgba(0, 225, 255, 0.3) !important;
+}
+
+/* Globale Design-Variablen */
+:root {
+  /* Basis-Farben */
+  --background: #ffffff;
+  --foreground: #171717;
+  
+  /* Dunkles Design */
+  --color-background: #18181b;
+  --color-foreground: #f8fafc;
+  --color-dark: #18181b;
+  --color-light: #f8fafc;
+  
+  /* Schriftarten */
+  --font-sans: 'Poppins', Arial, Helvetica, sans-serif;
+  --font-mono: 'Geist Mono', 'Fira Mono', 'Menlo', monospace;
+  
+  /* Farbpalette aus project_martin */
+  --color-primary-50: #e6fcff;
+  --color-primary-100: #ccf9ff;
+  --color-primary-200: #99f3ff;
+  --color-primary-300: #66edff;
+  --color-primary-400: #33e7ff;
+  --color-primary-500: #00E1FF;
+  --color-primary-600: #00b4cc;
+  --color-primary-700: #008799;
+  --color-primary-800: #005b66;
+  --color-primary-900: #002e33;
+  
+  /* Button-Rundungen */
+  --button-radius: 9999px; /* Vollständig rund */
+  
+  /* Schatten und Abstände */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  --shadow-primary: 0 4px 14px rgba(0, 225, 255, 0.15);
+  --shadow-primary-hover: 0 6px 20px rgba(0, 225, 255, 0.25);
+  
+  /* Abstände */
+  --spacing-xs: 0.25rem; /* 4px */
+  --spacing-sm: 0.5rem;  /* 8px */
+  --spacing-md: 1rem;    /* 16px */
+  --spacing-lg: 1.5rem;  /* 24px */
+  --spacing-xl: 2rem;    /* 32px */
+  --spacing-2xl: 3rem;   /* 48px */
+  
+  --color-secondary-50: #fce6f4;
+  --color-secondary-100: #f9cce9;
+  --color-secondary-200: #f399d3;
+  --color-secondary-300: #ed66bd;
+  --color-secondary-400: #e733a7;
+  --color-secondary-500: #E10091;
+  --color-secondary-600: #b40074;
+  --color-secondary-700: #870057;
+  --color-secondary-800: #5b003a;
+  --color-secondary-900: #2e001d;
+  
+  --color-neutral-50: #f8f8f8;
+  --color-neutral-100: #f0f0f0;
+  --color-neutral-200: #e4e4e4;
+  --color-neutral-300: #d1d1d1;
+  --color-neutral-400: #b4b4b4;
+  --color-neutral-500: #9a9a9a;
+  --color-neutral-600: #818181;
+  --color-neutral-700: #6a6a6a;
+  --color-neutral-800: #2d2d2d;
+  --color-neutral-900: #1a1a1a00;
+}
+
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #3737376a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Premium Header-Styling */
+h1, h2, h3, h4, .heading {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin-bottom: 1rem;
+  color: #fff !important;
+}
+
+/* Passwortgeschützte Bilder - WICHTIG: NICHT ENTFERNEN */
+.password-protected-blur {
+  filter: blur(10px) !important;
+  -webkit-filter: blur(10px) !important;
+}
+
+/* Einheitlicher Stil für die Navigationsleiste */
+nav, .header, header, div[class*="header"], div[class*="nav"] {
+  background-color: rgba(30, 30, 30, 0) !important;
+  border-bottom: 1px solid rgba(255, 106, 0, 0) !important;
+  box-shadow: none !important;
+
+}
+
+.adminHeader {
+  background: rgba(25, 28, 30, 0.98) !important;
+  align-items: center;
+  z-index: 10 !important;
+}
+
+/* Kategorien und Menüs bleiben transparent */
+.categories, div[class*="categories"], div[class*="menu"] {
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  z-index: 100;
+}
+
+/* Optimierte Eingabefelder für Login/Register */
+.input-field:focus {
+  outline: none;
+  border-color: var(--color-primary-400);
+  box-shadow: 0 2px 8px rgba(0,225,255,0.10);
+}
+
+.stylish-card {
+  border-radius: 1.25rem;
+  pointer-events: none;
+  z-index: 0;
+  background: linear-gradient(120deg, #1e1e1e4f 0%, #1e1e1e98 100%);
+  filter: blur(8px) brightness(1.2);
+  opacity: 0.25;
+  box-shadow: 0 0 32px 8px #00f2ffaf, 0 0 0 2px #30222fb8;
+}
+
+/* Buttons und Cards aus project_martin */
+.btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--color-primary-500);
+  box-shadow: 0 2px 8px rgba(0,225,255,0.10);
+  transition: background 0.3s, box-shadow 0.3s;
+  cursor: pointer;
+  font-family: 'Poppins', Arial, Helvetica, sans-serif;
+}
+
+/* WICHTIG: Passwortschutz für Galerien - NICHT ENTFERNEN */
+[data-password-protected="true"] img {
+  filter: blur(15px) !important; /* Grayscale entfernt */
+  opacity: 0.7 !important;
+}
+
+[data-password-protected="true"] {
+  position: relative !important;
+  overflow: hidden !important;
+  /* Kein Blur auf der gesamten Karte */
+}
+
+/* Passwort-Button wurde entfernt, um doppelte Buttons zu vermeiden */
+[data-password-protected="true"]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 50;
+  pointer-events: none;
+}
+
+/* Overlay für passwortgeschützte Bilder entfernt */
+[data-password-protected="true"]::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: transparent; /* Kein dunkler Hintergrund mehr */
+  z-index: 50;
+  pointer-events: none;
+}
+
+/* Passwortgeschützte Galerien */
+.password-protected-image {
+  filter: grayscale(100%) !important;
+  transition: filter 0.3s ease-in-out !important;
+}
+
+.password-protected-overlay {
+  position: absolute !important;
+  top: 10px !important;
+  right: 10px !important;
+  background-color: rgba(225, 0, 0, 0.8) !important;
+  color: white !important;
+  padding: 4px 10px !important;
+  border-radius: 12px !important;
+  font-size: 12px !important;
+  font-weight: bold !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+  z-index: 100 !important;
+}
+.btn:hover {
+  background: var(--color-primary-600);
+  box-shadow: 0 4px 16px rgba(0,225,255,0.15);
+}
+.btn-secondary {
+  background: var(--color-secondary-500);
+}
+.btn-secondary:hover {
+  background: var(--color-secondary-600);
+}
+.card {
+  background: var(--color-neutral-800);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,225,255,0.07);
+}
+.section-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  color: var(--color-primary-300);
+}
+
+
+@media (min-width: 768px) {
+  .input-field {
+    max-width: 400px;
+    font-size: 18px !important;
+    padding: 14px 18px !important;
+  }
+}
+
+/* Blur-Effekt für nicht angemeldete Benutzer */
+.gallery-image-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.blurred-image {
+  filter: blur(15px);
+  transform: scale(1.05); /* Verhindert sichtbare Kanten durch den Blur-Effekt */
+  transition: filter 0.3s ease;
+}
+
+.login-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white;
+  text-align: center;
+  padding: 20px;
+  z-index: 10;
+  opacity: 1;
+  transition: opacity 0.3s ease, background-color 0.3s ease;
+}
+
+.gallery-image-container:hover .login-overlay {
+  background-color: rgba(0, 0, 0, 0.8);
+}
+
+.login-button {
+  margin-top: 15px;
+  padding: 10px 20px;
+  background-color: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.login-button:hover {
+  background-color: var(--color-primary-dark);
+}
+
+/* Verbesserte Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(8, 8, 20, 0.2);
+}
+
+
+
+/* Minimalistisches, hochmodernes Design-System */
+
+/* Admin Galerie Styles */
+.admin-gallery-box {
+  background: #232634;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  border: 1px solid transparent;
+  width: 100%;
+  transition: all 0.2s;
+}
+.admin-gallery-box.open {
+  box-shadow: 0 2px 16px rgba(0,225,255,0.10);
+  border: 1px solid #00e1ff;
+}
+.admin-gallery-header {
+  display: flex;
+  align-items: center;
+  padding: 12px 14px;
+  cursor: pointer;
+  user-select: none;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.admin-gallery-thumb {
+  position: relative;
+  width: 70px;
+  height: 56px;
+}
+.admin-gallery-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #00e1ff65;
+  background: #232634;
+}
+.admin-gallery-thumb-empty {
+  width: 70px;
+  height: 56px;
+  border-radius: 8px;
+  background: #232634;
+  border: 2px solid #00e1ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ccc;
+  font-size: 14px;
+}
+.admin-gallery-title {
+  font-weight: 700;
+  font-size: 16px;
+  color: #00e1ff;
+}
+.admin-gallery-meta {
+  font-size: 14px;
+  color: #888;
+  margin-top: 4px;
+}
+.admin-gallery-media {
+  padding: 0 12px 16px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+.admin-media-thumb {
+  position: relative;
+  width: 100px;
+  height: 80px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #232634;
+  box-shadow: 0 1px 6px rgba(0,225,255,0.10);
+  margin-bottom: 4px;
+  flex: 0 0 auto;
+}
+.admin-media-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.7;
+  border-radius: 8px;
+}
+.admin-media-thumb-delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: #232634;
+  color: #bbbbbb;
+  border: 1px solid #232634;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 18px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.95;
+  transition: opacity 0.18s;
+  z-index: 2;
+}
+.admin-upload-box {
+  min-width: 340px;
+  background: rgba(241,241,241,0.85);
+  border-radius: 18px;
+  padding: 26px;
+  box-shadow: 0 4px 24px 0 #00e1ff33;
+  border: 0.5px solid #00e1ff33;
+  margin-bottom: 20px;
+}
+.admin-upload-title {
+  font-size: 28px;
+  font-weight: 800;
+  margin-bottom: 24px;
+  color: #00e1ff;
+}
+.admin-input {
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  font-size: 18px;
+  border-radius: 6px;
+  border: 2px solid #888;
+  background: #fff;
+  color: #232634;
+  outline: none;
+  font-weight: 500;
+}
+.admin-upload-btn {
+  margin-left: 0;
+  padding: 10px 32px;
+  font-size: 18px;
+  border-radius: 8px;
+  background: #00e1ff;
+  color: #bbbbbb;
+  border: 1px solid #232634;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  opacity: 1;
+  transition: opacity 0.2s;
+}
+.admin-upload-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+
+/* Eleganter Rahmen für Galerie-Karten (immer sichtbar) */
+.grid-cols-1 > div,
+.overflow-hidden.rounded-lg {
+  position: relative !important;
+  border: none !important;
+  background-clip: padding-box !important;
+  transition: all 0.2s ease !important;
+}
+
+
+
+
+
+
+
+/* Stärkerer Pulseffekt für den Glow */
+@keyframes strong-pulse {
+  0% {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 0 25px rgba(255, 107, 0, 0.3);
+  }
+  100% {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 0 35px rgba(255, 107, 0, 0.6);
+  }
+}
+
+/* Bilder in Galerie-Karten */
+.object-cover {
+  transition: all 0.5s ease-out !important;
+  filter: saturate(0.9) !important; /* Leicht reduzierte Sättigung für professionellen Look */
+  z-index: 0 !important; /* Stellt sicher, dass Bilder unter dem Rahmen liegen */
+}
+
+.group:hover .object-cover {
+  filter: saturate(1.1) !important; /* Leicht erhöhte Sättigung beim Hover */
+  transform: scale(1.03) !important; /* Leichter Zoom-Effekt */
+}
+
+/* Cleaner Overlay für Bildunterschriften */
+.bg-gradient-to-t.from-black\/70 {
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.2) 80%, transparent 100%) !important;
+  opacity: 0.9 !important;
+}
+
+/* Moderne Typografie für Bildunterschriften */
+.font-medium.text-lg {
+  font-size: 1rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.01em !important;
+  text-transform: uppercase !important;
+}
+
+/* Minimalistische Buttons */
+.button, [class*="btn"] {
+  background-color: #2d2d2d !important;
+  color: #b4b4b4 !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0.50rem 1.5rem !important;
+  border-radius: 10px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.05em !important;
+  /*text-transform: uppercase !important;*/
+  font-size: 0.8rem !important;
+  transition: all 0.2s ease !important;
+}
+
+button:hover, .button:hover, [class*="btn"]:hover {
+  background-color: rgba(0, 225, 255, 0.3) !important;
+  transform: none !important;
+}
+
+/* Professionelle Header-Styles */
+h1, h2, h3, .heading {
+  font-weight: 400 !important;
+  letter-spacing: -0.01em !important;
+  line-height: 1.2 !important;
+  text-transform: uppercase !important;
+}
+
+h1, .h1 {
+  font-size: 1.8rem !important;
+  color: #fff !important;
+}
+
+/* Verbesserte Navigation - Padding */
+
+/* Tailwind text-white utility fix for buttons */
+button.text-white, .button.text-white, [class*="btn"].text-white {
+  color: #fff !important;
+}
+
+.gallery-card-wrapper {
+  position: relative;
+  cursor: pointer;
+  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease-in-out, border-radius 0.3s ease, box-shadow 0.3s ease;
+  margin: 10px;
+  background-color: #1a1a1a;
+  border: 1px solid rgba(255, 107, 0, 0.1);
+}
+
+.gallery-card-wrapper:hover {
+  border-radius: 24px;
+  box-shadow: 0 12px 24px rgba(255, 107, 0, 0.3);
+  border-color: rgba(255, 107, 0, 0.3);
+  transform: translateY(-8px);
+}
+
+.gallery-image-container {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+}
+
+.gallery-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gallery-category-tag {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.gallery-info {
+  padding: 15px;
+  background-color: #1a1a1a;
+  color: white;
+}
+
+.gallery-title {
+  margin: 0 0 5px 0;
+  font-size: 18px;
+}
+
+.gallery-password-badge {
+  background-color: #ff0000;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7em;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.gallery-year {
+  margin: 0;
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.gallery-debug-marker {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  padding: 2px 6px;
+  font-size: 10px;
+  z-index: 999;
+  border-radius: 4px;
+  color: white;
+}
+
+.gallery-debug-marker-password {
+  background-color: #ff0000;
+}
+
+.gallery-debug-marker-free {
+  background-color: #00ff00;
+}
+
+/* Garantiert sichtbarer Text in allen Input-Feldern */
+.input-field,
+.input-field:focus,
+.input-field:active {
+  color: #fff !important;
+  background: #18181b !important;
+  border: 2px solid #2d2d2d !important;
+  caret-color: #fff !important;
+}
+.input-field::placeholder {
+  color: #6a6a6a !important;
+  opacity: 1 !important;
+}
+
+nav, header, .header {
+  padding: 0.4rem 0 !important; /* Erhöhte Höhe des Headers */
+  min-height: 60px; /* Minimale Höhe des Headers */
+  background-color: #002e3300;
+}
+
+/* Professionelle Abstandsgestaltung */
+.gap-6 {
+  gap: 1rem !important;
+}
+
+.p-6, .p-4 {
+  padding: 1rem !important;
+}
+
+.mt-8 {
+  margin-top: 1.5rem !important;
+}
