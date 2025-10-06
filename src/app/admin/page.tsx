@@ -37,27 +37,39 @@ const isVideoUrl = (url: string): boolean => {
 // Hilfsfunktion: Finde ein hochgeladenes Thumbnail für ein Video
 const findVideoThumbnail = (videoUrl: string, galleryFiles: string[]): string | null => {
   // Extrahiere den Dateinamen ohne Erweiterung
-  const videoName = videoUrl.split('/').pop()?.split('.')[0];
+  const rawLastSeg = decodeURIComponent(videoUrl.split('/').pop() || '');
+  const lastDotName = rawLastSeg.lastIndexOf('.');
+  const videoName = lastDotName > 0 ? rawLastSeg.substring(0, lastDotName) : rawLastSeg;
   if (!videoName) return null;
-  
+
   // Extrahiere Jahr und Galerie aus der URL für den video_thumb-Pfad
   const urlParts = videoUrl.split('/');
   const year = urlParts[urlParts.length - 3]; // Jahr ist 3 Teile vor dem Dateinamen
   const gallery = urlParts[urlParts.length - 2]; // Galerie ist 2 Teile vor dem Dateinamen
-  
-  // Suche nach einem passenden Thumbnail in der Galerie
-  const thumbnail = galleryFiles.find(url => 
-    (url.includes(`${videoName}_thumb.`) || url.includes(`${videoName}-thumb.`)) && !isVideoUrl(url)
-  );
-  
-  // Wenn kein Thumbnail gefunden wurde, versuche es im video_thumb/-Unterordner
-  if (!thumbnail) {
-    // Konstruiere den Pfad zum Thumbnail im video_thumb/-Unterordner
-    const videoThumbPath = `https://tonbandleipzig.de/tonband/uploads/${year}/${gallery}/video_thumb/${videoName}_thumb.jpg`;
-    return videoThumbPath;
+  const encGallery = encodeURIComponent(decodeURIComponent(gallery || ''));
+
+  // Suche zuerst in der bekannten Dateiliste nach einem passenden Thumbnail (beliebige Extension)
+  const exts = ['jpg', 'jpeg', 'png', 'webp'];
+  const found = galleryFiles.find(url => {
+    const lower = url.toLowerCase();
+    if (isVideoUrl(lower)) return false;
+    return (
+      lower.includes(`/video_thumb/${videoName.toLowerCase()}_thumb.`) ||
+      lower.includes(`${videoName.toLowerCase()}_thumb.`) ||
+      lower.includes(`${videoName.toLowerCase()}-thumb.`)
+    );
+  });
+  if (found) return found;
+
+  // Wenn kein Thumbnail in der Liste gefunden wurde, konstruiere Standardpfade im video_thumb/-Unterordner mit gängigen Extensions
+  for (const ext of exts) {
+    const encName = encodeURIComponent(videoName);
+    const candidate = `https://tonbandleipzig.de/tonband/uploads/${year}/${encGallery}/video_thumb/${encName}_thumb.${ext}`;
+    // Wir können hier nicht auf Existenz prüfen; geben den ersten Kandidaten zurück (PNG bevorzugt)
+    return candidate;
   }
-  
-  return thumbnail;
+
+  return null;
 };
 
 // Hilfsfunktion: Generiere eine Video-Thumbnail-URL oder verwende den Fallback
@@ -74,16 +86,23 @@ const getVideoThumbnail = (videoUrl: string, galleryFiles: string[] = []): strin
       if (pathParts.length >= 3) {
         const year = pathParts[0];
         const gallery = pathParts[1];
-        const videoName = pathParts[pathParts.length - 1].split('.')[0];
+        const encGallery = encodeURIComponent(decodeURIComponent(gallery || ''));
+        const lastSegment = decodeURIComponent(pathParts[pathParts.length - 1] || '');
+        const lastDot = lastSegment.lastIndexOf('.');
+        const base = lastDot > 0 ? lastSegment.substring(0, lastDot) : lastSegment;
         
-        console.log('Extrahierte Daten:', { year, gallery, videoName });
+        console.log('Extrahierte Daten:', { year, gallery, base });
         
-        // Direkter Pfad zum video_thumb-Ordner
-        const videoThumbPath = `https://tonbandleipzig.de/tonband/uploads/${year}/${gallery}/video_thumb/${videoName}_thumb.jpg`;
-        console.log('Generierter Thumbnail-Pfad:', videoThumbPath);
-        
-        // Gib den direkten Pfad zurück
-        return videoThumbPath;
+        // Direkter Pfad zum video_thumb-Ordner – bevorzugt PNG, dann JPG/JPEG/WEBP (wir geben den ersten Kandidaten zurück)
+        const encBase = encodeURIComponent(base);
+        const candidates = [
+          `https://tonbandleipzig.de/tonband/uploads/${year}/${encGallery}/video_thumb/${encBase}_thumb.jpg`,
+          `https://tonbandleipzig.de/tonband/uploads/${year}/${encGallery}/video_thumb/${encBase}_thumb.jpeg`,
+          `https://tonbandleipzig.de/tonband/uploads/${year}/${encGallery}/video_thumb/${encBase}_thumb.png`,
+          `https://tonbandleipzig.de/tonband/uploads/${year}/${encGallery}/video_thumb/${encBase}_thumb.webp`,
+        ];
+        console.log('Generierte Thumbnail-Kandidaten:', candidates);
+        return candidates[0];
       }
     } catch (error) {
       console.error('Fehler beim Extrahieren der URL-Teile:', error);
@@ -985,10 +1004,18 @@ const getGalleryThumb = (gallery: Gallery): string => {
                                           if (pathParts.length >= 3) {
                                             const year = pathParts[0];
                                             const gallery = pathParts[1];
-                                            const videoName = pathParts[pathParts.length - 1].split('.')[0];
-                                            
-                                            // Direkter Pfad zum video_thumb-Ordner
-                                            return `https://tonbandleipzig.de/tonband/uploads/${year}/${gallery}/video_thumb/${videoName}_thumb.jpg`;
+                                            const lastSeg = decodeURIComponent(pathParts[pathParts.length - 1] || '');
+                                            const lastDot = lastSeg.lastIndexOf('.');
+                                            const base = lastDot > 0 ? lastSeg.substring(0, lastDot) : lastSeg;
+                                            const encBase = encodeURIComponent(base);
+                                            // Kandidaten in Reihenfolge der gängigen Endungen
+                                            const candidates = [
+                                              `https://tonbandleipzig.de/tonband/uploads/${year}/${gallery}/video_thumb/${encBase}_thumb.jpg`,
+                                              `https://tonbandleipzig.de/tonband/uploads/${year}/${gallery}/video_thumb/${encBase}_thumb.jpeg`,
+                                              `https://tonbandleipzig.de/tonband/uploads/${year}/${gallery}/video_thumb/${encBase}_thumb.png`,
+                                              `https://tonbandleipzig.de/tonband/uploads/${year}/${gallery}/video_thumb/${encBase}_thumb.webp`,
+                                            ];
+                                            return candidates[0];
                                           }
                                         } catch (error) {
                                           console.error('Fehler beim Generieren des Thumbnail-Pfads:', error);
@@ -1011,25 +1038,35 @@ const getGalleryThumb = (gallery: Gallery): string => {
                                       const videoPathParts = videoUrlPath.split('/');
                                       const videoYear = videoPathParts[0];
                                       const videoGallery = videoPathParts[1];
-                                      const videoFileName = videoPathParts[videoPathParts.length - 1].split('.')[0];
+                                      const lastSeg = decodeURIComponent(videoPathParts[videoPathParts.length - 1] || '');
+                                      const lastDot = lastSeg.lastIndexOf('.');
+                                      const base = lastDot > 0 ? lastSeg.substring(0, lastDot) : lastSeg;
+                                      const encBase = encodeURIComponent(base);
                                       
-                                      console.log('Video-Komponenten:', { videoYear, videoGallery, videoFileName });
+                                      console.log('Video-Komponenten:', { videoYear, videoGallery, base });
                                       
-                                      if (currentSrc.includes('/video_thumb/')) {
-                                        // Versuche zuerst im thumb/-Ordner nach einem Thumbnail zu suchen
-                                        const thumbPath = `https://tonbandleipzig.de/tonband/uploads/${videoYear}/${videoGallery}/thumb/${videoFileName}_thumb.jpg`;
-                                        console.log('Versuche Thumbnail im thumb/-Ordner:', thumbPath);
-                                        target.src = thumbPath;
-                                      } else if (currentSrc.includes('/thumb/')) {
-                                        // Wenn der thumb/-Pfad nicht funktioniert, versuche den alten Pfad
-                                        const oldPath = `https://tonbandleipzig.de/tonband/uploads/${videoYear}/${videoGallery}/${videoFileName}_thumb.jpg`;
-                                        console.log('Versuche Legacy-Pfad:', oldPath);
-                                        target.src = oldPath;
-                                      } else {
-                                        // Wenn das auch nicht funktioniert, generiere ein SVG
-                                        console.log('Verwende SVG-Fallback');
-                                        target.src = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='240' viewBox='0 0 320 240'%3E%3Crect width='320' height='240' fill='%232a1208'/%3E%3Ctext x='160' y='120' font-family='Arial' font-size='16' fill='%23ff6b00' text-anchor='middle'%3EVideo%3C/text%3E%3C/svg%3E`;
-                                      }
+                                      // Kandidatenliste in der gewünschten Reihenfolge
+                                      const candidates = [
+                                        `https://tonbandleipzig.de/tonband/uploads/${videoYear}/${videoGallery}/video_thumb/${encBase}_thumb.jpg`,
+                                        `https://tonbandleipzig.de/tonband/uploads/${videoYear}/${videoGallery}/video_thumb/${encBase}_thumb.jpeg`,
+                                        `https://tonbandleipzig.de/tonband/uploads/${videoYear}/${videoGallery}/video_thumb/${encBase}_thumb.png`,
+                                        `https://tonbandleipzig.de/tonband/uploads/${videoYear}/${videoGallery}/video_thumb/${encBase}_thumb.webp`,
+                                        // Fallbacks (thumb/-Ordner, legacy-Pfad) mit JPG/JPEG/PNG/WEBP
+                                        `https://tonbandleipzig.de/tonband/uploads/${videoYear}/${videoGallery}/thumb/${encBase}_thumb.jpg`,
+                                        `https://tonbandleipzig.de/tonband/uploads/${videoYear}/${videoGallery}/thumb/${encBase}_thumb.jpeg`,
+                                        `https://tonbandleipzig.de/tonband/uploads/${videoYear}/${videoGallery}/thumb/${encBase}_thumb.png`,
+                                        `https://tonbandleipzig.de/tonband/uploads/${videoYear}/${videoGallery}/thumb/${encBase}_thumb.webp`,
+                                        `https://tonbandleipzig.de/tonband/uploads/${videoYear}/${videoGallery}/${encBase}_thumb.jpg`,
+                                        `https://tonbandleipzig.de/tonband/uploads/${videoYear}/${videoGallery}/${encBase}_thumb.jpeg`,
+                                        `https://tonbandleipzig.de/tonband/uploads/${videoYear}/${videoGallery}/${encBase}_thumb.png`,
+                                        `https://tonbandleipzig.de/tonband/uploads/${videoYear}/${videoGallery}/${encBase}_thumb.webp`,
+                                      ];
+                                      
+                                      // Finde den aktuellen Index und versuche den nächsten Kandidaten
+                                      const idx = candidates.findIndex(c => c === currentSrc);
+                                      const next = idx >= 0 && idx < candidates.length - 1 ? candidates[idx + 1] : candidates[0];
+                                      console.log('Versuche nächsten Thumbnail-Kandidaten:', next);
+                                      target.src = next;
                                     }}
                                   />
                                 </div>
@@ -1657,16 +1694,34 @@ const getGalleryThumb = (gallery: Gallery): string => {
                     formData.append('kategorie', originalKategorie); // Verwende die ursprüngliche Kategorie
                     
                     // Unterschiedliche Dateinamen für Galerie-Thumbnails und Video-Thumbnails
+                    // Verwende die ursprüngliche Dateierweiterung (PNG/JPG/JPEG/WEBP) des ausgewählten Bildes
+                    const inferExtFromType = (mime: string): string => {
+                      const t = mime.toLowerCase();
+                      if (t.includes('png')) return 'png';
+                      if (t.includes('jpeg') || t.includes('jpg')) return 'jpg';
+                      if (t.includes('webp')) return 'webp';
+                      return '';
+                    };
+                    const fileExtFromType = inferExtFromType(thumbnailFile.type);
+                    const fileExtFromName = (() => {
+                      const n = thumbnailFile.name.toLowerCase();
+                      const m = n.match(/\.([a-z0-9]+)$/);
+                      return m ? m[1] : '';
+                    })();
+                    const resolvedExt = (fileExtFromType || fileExtFromName || 'jpg').replace('jpeg','jpg');
+
                     let thumbnailName;
                     if (isGalleryThumbnailUpload) {
-                      // Für Galerie-Thumbnails verwenden wir einen festen Namen
-                      thumbnailName = 'gallery_thumb.jpg';
+                      // Für Galerie-Thumbnails verwenden wir einen festen Namen, aber mit korrekter Extension
+                      thumbnailName = `gallery_thumb.${resolvedExt}`;
                       formData.append('isGalleryThumb', 'true');
                     } else {
-                      // Für Video-Thumbnails verwenden wir den Video-Namen + _thumb
+                      // Für Video-Thumbnails verwenden wir den Video-Namen + _thumb und behalten die Bild-Extension bei
                       const videoUrlParts = selectedVideoForThumbnail.url.split('/');
-                      const videoName = videoUrlParts[videoUrlParts.length - 1];
-                      thumbnailName = videoName.split('.')[0] + '_thumb.jpg';
+                      const lastSegment = decodeURIComponent(videoUrlParts[videoUrlParts.length - 1] || '');
+                      const lastDot = lastSegment.lastIndexOf('.');
+                      const base = lastDot > 0 ? lastSegment.substring(0, lastDot) : lastSegment;
+                      thumbnailName = `${base}_thumb.${resolvedExt}`;
                       formData.append('isVideoThumb', 'true');
                       console.log('[DEBUG] Video-Thumbnail Dateiname:', thumbnailName);
                     }

@@ -934,11 +934,21 @@ export default function GalleryPage() {
                                     if (pathParts.length >= 3) {
                                       const year = pathParts[0];
                                       const gallery = pathParts[1];
-                                      const videoName = pathParts[pathParts.length - 1].split('.')[0];
+                                      const encGallery = encodeURIComponent(decodeURIComponent(gallery || ''));
+                                      const lastSeg = decodeURIComponent(pathParts[pathParts.length - 1] || '');
+                                      const lastDot = lastSeg.lastIndexOf('.');
+                                      const base = lastDot > 0 ? lastSeg.substring(0, lastDot) : lastSeg;
+                                      const encBase = encodeURIComponent(base);
                                       
-                                      // Direkter Pfad zum video_thumb-Ordner
-                                      console.log('Generiere direkten Thumbnail-Pfad für:', imageUrl);
-                                      return `https://tonbandleipzig.de/tonband/uploads/${year}/${gallery}/video_thumb/${videoName}_thumb.jpg`;
+                                      // Kandidaten im video_thumb/-Ordner (Bevorzugt JPG)
+                                      const candidates = [
+                                        `https://tonbandleipzig.de/tonband/uploads/${year}/${encGallery}/video_thumb/${encBase}_thumb.jpg`,
+                                        `https://tonbandleipzig.de/tonband/uploads/${year}/${encGallery}/video_thumb/${encBase}_thumb.jpeg`,
+                                        `https://tonbandleipzig.de/tonband/uploads/${year}/${encGallery}/video_thumb/${encBase}_thumb.png`,
+                                        `https://tonbandleipzig.de/tonband/uploads/${year}/${encGallery}/video_thumb/${encBase}_thumb.webp`,
+                                      ];
+                                      console.log('Direkte Thumbnail-Kandidaten:', candidates);
+                                      return candidates[0];
                                     }
                                   } catch (error) {
                                     console.error('Fehler beim Generieren des Thumbnail-Pfads:', error);
@@ -970,6 +980,7 @@ export default function GalleryPage() {
                                   const galleryPath = selectedGallery.name.split('/');
                                   const year = galleryPath[0];
                                   const gallery = galleryPath[1];
+                                  const encGallery = encodeURIComponent(decodeURIComponent(gallery || ''));
                                   
                                   console.log('Thumbnail-Fehler für Video-Galerie:', selectedGallery.name);
                                   console.log('Aktuelle Quelle:', target.src);
@@ -977,19 +988,19 @@ export default function GalleryPage() {
                                   // Vereinfachte Fallback-Logik: Versuche direkt den thumb/-Ordner, wenn das video_thumb/-Thumbnail nicht funktioniert
                                   if (target.src.includes('/video_thumb/')) {
                                     // Versuche direkt das gallery_thumb.jpg im thumb/-Ordner
-                                    const thumbPath = `https://tonbandleipzig.de/tonband/uploads/${year}/${gallery}/thumb/gallery_thumb.jpg`;
+                                    const thumbPath = `https://tonbandleipzig.de/tonband/uploads/${year}/${encGallery}/thumb/gallery_thumb.jpg`;
                                     console.log('Versuche direkten Fallback zum thumb/-Ordner:', thumbPath);
                                     target.src = thumbPath;
                                   } else if (target.src.includes('/thumb/')) {
                                     // Wenn der thumb/-Pfad nicht funktioniert, versuche das Legacy-Thumbnail im Hauptverzeichnis
-                                    const legacyPath = `https://tonbandleipzig.de/tonband/uploads/${year}/${gallery}/gallery_thumb.jpg`;
+                                    const legacyPath = `https://tonbandleipzig.de/tonband/uploads/${year}/${encGallery}/gallery_thumb.jpg`;
                                     target.src = legacyPath;
                                   } else {
                                     // Wenn alle Pfade fehlschlagen, verwende ein einheitliches Fallback-Bild
-                                    target.src = "/assets/video-placeholder.jpg";
+                                    target.src = "/assets/video-placeholder.svg";
                                   }
                                 } else {
-                                  target.src = "/placeholder.jpg";
+                                  target.src = "/placeholder.svg";
                                 }
                               }}
                             />
