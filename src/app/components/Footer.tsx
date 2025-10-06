@@ -13,10 +13,23 @@ const Footer = () => {
           </div>
           <div className="flex items-center gap-4">
             <a
-              href="#"
+              href="/impressum"
+              className="text-[#b4b4b4] hover:text-[#00e1ff] transition-colors text-sm"
+            >
+              Impressum
+            </a>
+            <a
+              href="/datenschutz"
+              className="text-[#b4b4b4] hover:text-[#00e1ff] transition-colors text-sm"
+            >
+              Datenschutz
+            </a>
+            <a
+              href="https://session.tonbandleipzig.de"
               className="text-[#b4b4b4] hover:text-[#00e1ff] transition-colors"
               target="_blank"
               rel="noopener noreferrer"
+              title="ton.band Sessions"
             >
               <Github size={22} />
             </a>

@@ -340,6 +340,19 @@ export default function AdminPage() {
       if (parts.length >= 2) {
         setYear(parts[0]);
         setGallery(parts[1]);
+        
+        // Setze auch die Kategorie, falls vorhanden
+        const galleryData = galleries.find(g => g.name === galleryName);
+        if (galleryData?.meta?.kategorie) {
+          setKategorie(galleryData.meta.kategorie);
+          console.log(`[DEBUG] Kategorie automatisch gesetzt: ${galleryData.meta.kategorie}`);
+        } else {
+          // Für Video-Galerien standardmäßig "Video" setzen
+          if (isVideoGallery(galleryName)) {
+            setKategorie("Video");
+            console.log(`[DEBUG] Video-Galerie erkannt, Kategorie auf "Video" gesetzt`);
+          }
+        }
       }
     }
   };
@@ -577,7 +590,20 @@ export default function AdminPage() {
   };
 
   const handleUpload = async () => {
-    if (!files.length || !year || !gallery || !kategorie) return;
+    if (!files.length || !year || !gallery || !kategorie) {
+      alert('Bitte fülle alle Felder aus (Jahr, Galerie, Kategorie) und wähle mindestens eine Datei aus.');
+      return;
+    }
+    
+    // Prüfe die Dateigröße (512MB Limit wegen PHP-Konfiguration)
+    const maxSizeBytes = 512 * 1024 * 1024; // 512MB in Bytes
+    const oversizedFiles = files.filter(f => f.size > maxSizeBytes);
+    if (oversizedFiles.length > 0) {
+      const fileSizeMB = Math.round(oversizedFiles[0].size / (1024 * 1024));
+      alert(`Die Datei "${oversizedFiles[0].name}" ist zu groß (${fileSizeMB}MB).\n\nMaximale Dateigröße: 512MB\n\nBitte komprimiere das Video oder kontaktiere den Administrator, um das Upload-Limit zu erhöhen.`);
+      return;
+    }
+    
     setUploading(true);
     setUploadResults([]);
     setProgress(0);
@@ -585,15 +611,11 @@ export default function AdminPage() {
     
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("year", year);
-      formData.append("gallery", gallery);
-      formData.append("kategorie", kategorie);
       
       // Prüfen, ob es sich um ein Video handelt
       const isVideo = file.type.startsWith('video/');
-      formData.append("mediaType", isVideo ? "video" : "image");
+      
+      console.log(`[DEBUG] Upload-Start: Jahr=${year}, Galerie=${gallery}, Kategorie=${kategorie}, Datei=${file.name}, Typ=${file.type}, isVideo=${isVideo}`);
       
       try {
         // Debug-Informationen anzeigen
@@ -601,14 +623,27 @@ export default function AdminPage() {
         console.log(`Year: ${year}, Gallery: ${gallery}, Kategorie: ${kategorie}`);
         console.log(`API Token: ${process.env.NEXT_PUBLIC_TONBAND_API_TOKEN?.substring(0, 2)}...`);
         
-        // Direkte Kommunikation mit der PHP-API
+        // Direkte Kommunikation mit der PHP-API (umgeht Next.js Limits)
         const uploadUrl = "https://tonbandleipzig.de/tonband/upload.php";
-        console.log(`Uploading to: ${uploadUrl}`);
+        console.log(`Uploading to: ${uploadUrl} (direkt zu PHP)`);
         
-        // Füge alle Felder zur FormData hinzu, die die PHP-API erwartet
-        if (!formData.has('year')) formData.append('year', year);
-        if (!formData.has('gallery')) formData.append('gallery', gallery);
-        if (!formData.has('kategorie')) formData.append('kategorie', kategorie);
+        // Erstelle FormData
+        const formData = new FormData();
+        formData.append("file", file, file.name);
+        formData.append("year", year);
+        formData.append("gallery", gallery);
+        formData.append("kategorie", kategorie);
+        formData.append("mediaType", isVideo ? "video" : "image");
+        
+        // Debug: Zeige alle FormData-Einträge
+        console.log('[DEBUG] FormData Inhalt:');
+        for (let pair of formData.entries()) {
+          if (pair[0] === 'file') {
+            console.log(`  ${pair[0]}: [File] ${(pair[1] as File).name}, ${(pair[1] as File).size} bytes, ${(pair[1] as File).type}`);
+          } else {
+            console.log(`  ${pair[0]}: ${pair[1]}`);
+          }
+        }
         
         // Alternative Upload-Methode mit XMLHttpRequest
         // Diese Methode kann in einigen Fällen besser mit Serverberechtigungen umgehen
@@ -616,13 +651,24 @@ export default function AdminPage() {
           const xhr = new XMLHttpRequest();
           xhr.open('POST', uploadUrl, true);
           xhr.setRequestHeader('X-API-TOKEN', process.env.NEXT_PUBLIC_TONBAND_API_TOKEN || "0000");
+          // WICHTIG: Setze NICHT den Content-Type Header! 
+          // Der Browser setzt automatisch 'multipart/form-data' mit der richtigen Boundary
+          // xhr.setRequestHeader('Content-Type', 'multipart/form-data'); // <- FALSCH!
           
           xhr.onload = function() {
             console.log(`XHR status: ${xhr.status}, response: ${xhr.responseText}`);
             if (xhr.status === 200) {
               try {
                 const response = JSON.parse(xhr.responseText);
-                resolve(response);
+                // Prüfe auf Fehler in der Antwort
+                if (response.error) {
+                  console.error('Server-Fehler:', response.error, response.debug);
+                  console.error('Server sagt: files =', response.files);
+                  console.error('Server sagt: post =', response.post);
+                  reject(new Error(response.error + ' - Prüfe ob die Datei korrekt gesendet wurde'));
+                } else {
+                  resolve(response);
+                }
               } catch (e) {
                 console.error('Fehler beim Parsen der JSON-Antwort:', e);
                 // Wenn die Antwort kein gültiges JSON ist, aber der Status 200 ist,
@@ -646,9 +692,17 @@ export default function AdminPage() {
           xhr.upload.onprogress = function(e) {
             if (e.lengthComputable) {
               const percentComplete = (e.loaded / e.total) * 100;
-              console.log(`Upload progress: ${percentComplete.toFixed(2)}%`);
+              const fileProgress = Math.round(percentComplete);
+              const totalProgress = Math.round(((i + (percentComplete / 100)) / files.length) * 100);
+              console.log(`Upload progress: ${percentComplete.toFixed(2)}% (Datei ${i + 1}/${files.length})`);
+              // Aktualisiere den Progress-State in Echtzeit
+              setProgress(totalProgress);
             }
           };
+          
+          // Debug: Log vor dem Senden
+          console.log('[DEBUG] Sende FormData mit XHR...');
+          console.log('[DEBUG] FormData hat', Array.from(formData.entries()).length, 'Einträge');
           
           xhr.send(formData);
         });
@@ -1566,14 +1620,34 @@ const getGalleryThumb = (gallery: Gallery): string => {
                   try {
                     setUploadingThumbnail(true);
                     
-                    // Extrahiere Jahr und Galerie aus der URL
-                    const urlParts = selectedVideoForThumbnail.url.replace('https://tonbandleipzig.de/tonband/uploads/', '').split('/');
-                    const year = urlParts[0];
-                    const gallery = urlParts[1];
+                    // Extrahiere Jahr und Galerie aus der URL oder dem Galerienamen
+                    let year, gallery;
+                    
+                    // Versuche zuerst, aus dem Galerienamen zu extrahieren (z.B. "2025/TON.BAND - VIDEOS")
+                    const galleryNameParts = selectedVideoForThumbnail.galleryName.split('/');
+                    if (galleryNameParts.length >= 2) {
+                      year = galleryNameParts[0];
+                      gallery = galleryNameParts[1];
+                      console.log('[DEBUG] Jahr und Galerie aus Galerienamen extrahiert:', { year, gallery });
+                    } else {
+                      // Fallback: Extrahiere aus der URL
+                      const urlParts = selectedVideoForThumbnail.url.replace('https://tonbandleipzig.de/tonband/uploads/', '').split('/');
+                      year = urlParts[0];
+                      gallery = urlParts[1];
+                      console.log('[DEBUG] Jahr und Galerie aus URL extrahiert:', { year, gallery });
+                    }
                     
                     // Finde die ursprüngliche Kategorie
                     const galleryObj = galleries.find(g => g.name === selectedVideoForThumbnail.galleryName);
-                    const originalKategorie = galleryObj?.meta?.kategorie || '';
+                    const originalKategorie = galleryObj?.meta?.kategorie || 'Video';
+                    
+                    console.log('[DEBUG] Video-Thumbnail Upload:', {
+                      year,
+                      gallery,
+                      kategorie: originalKategorie,
+                      galleryName: selectedVideoForThumbnail.galleryName,
+                      videoUrl: selectedVideoForThumbnail.url
+                    });
                     
                     // FormData erstellen
                     const formData = new FormData();
@@ -1590,9 +1664,11 @@ const getGalleryThumb = (gallery: Gallery): string => {
                       formData.append('isGalleryThumb', 'true');
                     } else {
                       // Für Video-Thumbnails verwenden wir den Video-Namen + _thumb
-                      const videoName = urlParts[urlParts.length - 1];
+                      const videoUrlParts = selectedVideoForThumbnail.url.split('/');
+                      const videoName = videoUrlParts[videoUrlParts.length - 1];
                       thumbnailName = videoName.split('.')[0] + '_thumb.jpg';
                       formData.append('isVideoThumb', 'true');
+                      console.log('[DEBUG] Video-Thumbnail Dateiname:', thumbnailName);
                     }
                     formData.append('customFilename', thumbnailName);
                     

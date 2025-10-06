@@ -5,6 +5,9 @@ import Link from "next/link";
 
 import { useEffect } from "react";
 
+// KONFIGURATION: Registrierung aktivieren/deaktivieren
+const REGISTRATION_ENABLED = false; // Auf true setzen, um Registrierung zu aktivieren
+
 export default function LoginPage() {
   // Formular-Modus: 'login' oder 'register'
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -106,13 +109,15 @@ export default function LoginPage() {
             >
               Login
             </button>
-            <button 
-              type="button"
-              onClick={() => setMode('register')}
-              className={`flex-1 py-2 font-medium text-center ${mode === 'register' ? 'text-white border-b-2 border-white' : 'text-[#b4b4b4] hover:text-white'}`}
-            >
-              Registrieren
-            </button>
+            {REGISTRATION_ENABLED && (
+              <button 
+                type="button"
+                onClick={() => setMode('register')}
+                className={`flex-1 py-2 font-medium text-center ${mode === 'register' ? 'text-white border-b-2 border-white' : 'text-[#b4b4b4] hover:text-white'}`}
+              >
+                Registrieren
+              </button>
+            )}
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -120,8 +125,17 @@ export default function LoginPage() {
             {mode === 'login' ? 'Login' : 'Registrieren'}
           </h1>
           
+          {/* Hinweis: Login ist optional */}
+          {mode === 'login' && (
+            <div className="text-center mb-2 p-3 bg-[#2d2d2d] bg-opacity-50 rounded-lg">
+              <p className="text-sm text-[#b4b4b4]">
+                ℹ️ Eine Anmeldung ist nicht erforderlich, um die Galerie zu besuchen.
+              </p>
+            </div>
+          )}
+          
           {/* Nur bei Registrierung: Benutzername */}
-          {mode === 'register' && (
+          {mode === 'register' && REGISTRATION_ENABLED && (
             <label className="flex flex-col gap-1" style={{color:'#fff'}}>
               Benutzername
               <input

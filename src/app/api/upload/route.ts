@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { API_ENDPOINTS } from "../../config/api";
 
+// Erhöhe die Body-Size-Limits für Next.js
+export const runtime = 'nodejs';
+export const maxDuration = 300; // 5 Minuten
+export const dynamic = 'force-dynamic';
+
+// Konfiguration für große Dateien
+export const config = {
+  api: {
+    bodyParser: false, // Deaktiviere den Body-Parser
+    responseLimit: false,
+  },
+};
+
 /**
  * Upload-Route für Bilder und Videos
  * Diese Route leitet die Anfrage direkt an die PHP-API weiter
@@ -18,7 +31,22 @@ export async function POST(request: NextRequest) {
     console.log('Upload URL:', uploadUrl);
     
     // Hole die FormData aus der Anfrage
-    const formData = await request.formData();
+    // WICHTIG: Dies kann bei sehr großen Dateien (>500MB) fehlschlagen
+    let formData;
+    try {
+      formData = await request.formData();
+    } catch (error) {
+      console.error('Fehler beim Parsen der FormData:', error);
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Datei zu groß für Next.js FormData Parser',
+          details: error instanceof Error ? error.message : String(error),
+          hint: 'Versuche eine kleinere Datei oder kontaktiere den Administrator'
+        },
+        { status: 413, headers }
+      );
+    }
     
     // Debug: Überprüfe, welche Felder in der FormData enthalten sind
     const formDataFields = Array.from(formData.keys());
