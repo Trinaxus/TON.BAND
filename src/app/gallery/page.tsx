@@ -245,7 +245,7 @@ export default function GalleryPage() {
   const [metadata, setMetadata] = useState<Record<string, GalleryMetadata>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string>("Alle");
+  const [selectedCategory, setSelectedCategory] = useState<string>("Sessions");
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedGallery, setSelectedGallery] = useState<SelectedGallery>(null);
   // Lightbox-Zustandsvariablen
@@ -586,8 +586,14 @@ export default function GalleryPage() {
         
         // Extrahiere nur die Kategorienamen in der sortierten Reihenfolge
         const sortedCategories = categoriesWithYears.map(item => item.category);
-        
-        setCategories(["Alle", ...sortedCategories]);
+
+        // Stelle sicher, dass "Sessions" immer in der Liste ist (als Standardkategorie)
+        const allCategories = ["Alle", ...sortedCategories];
+        if (!allCategories.includes("Sessions")) {
+          allCategories.push("Sessions");
+        }
+
+        setCategories(allCategories);
         setGalleries(galleryData);
         setMetadata(metadataData);
       } catch (err) {
