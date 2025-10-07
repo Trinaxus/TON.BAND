@@ -14,7 +14,7 @@ export default function DatenschutzPage() {
               E-Mail: <a href="mailto:kontakt@tonbandleipzig.de" className="text-[#00e1ff] hover:underline">kontakt@tonbandleipzig.de</a>
             </p>
             <p className="mt-2">
-              Website: <a href="https://www.tonbandleipzig.de" target="_blank" rel="noopener noreferrer" className="text-[#00e1ff] hover:underline">https://www.tonbandleipzig.de</a>
+              Website: <a href="https://ton-band.vercel.app" target="_blank" rel="noopener noreferrer" className="text-[#00e1ff] hover:underline">https://ton-band.vercel.app</a>
             </p>
           </section>
 
@@ -151,7 +151,7 @@ export default function DatenschutzPage() {
             <h2 className="text-2xl font-semibold mb-4 text-white">10. Änderungen dieser Datenschutzerklärung</h2>
             <p>
               Wir behalten uns vor, diese Datenschutzerklärung anzupassen, um sie an geänderte Rechtslagen oder technische Änderungen anzupassen. Die jeweils aktuelle Version ist unter
-              <a href="https://www.tonbandleipzig.de/datenschutz" target="_blank" rel="noopener noreferrer" className="text-[#00e1ff] hover:underline"> https://www.tonbandleipzig.de/datenschutz</a> abrufbar.
+              <a href="https://ton-band.vercel.app/datenschutz" target="_blank" rel="noopener noreferrer" className="text-[#00e1ff] hover:underline"> https://ton-band.vercel.app/datenschutz</a> abrufbar.
             </p>
             <p className="mt-4 text-sm">
               <strong>Stand:</strong> Oktober 2025
