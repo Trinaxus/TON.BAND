@@ -185,6 +185,30 @@ export default function Header() {
         
       {/* Rechte Seite mit Benutzerinfo und Buttons */}
       <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full md:w-auto justify-center md:justify-end">
+        <Link href="/gallery"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            color: '#00e1ff',
+            fontSize: '0.875rem',
+            fontWeight: 600,
+            padding: '0.3rem 0.5rem',
+            borderRadius: '15px',
+            border: '1px solid rgba(0, 225, 255, 0.2)',
+            backgroundColor: 'rgba(0, 225, 255, 0.1)',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+            transition: 'all 0.2s',
+          }}
+          className="header-button"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="mr-1.5">
+            <rect x="3" y="3" width="18" height="18" rx="2" stroke="#00e1ff" strokeWidth="2"/>
+            <circle cx="9" cy="9" r="2" stroke="#00e1ff" strokeWidth="2"/>
+            <path d="M21 15L16 10L5 21" stroke="#00e1ff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <span>GALERIE</span>
+        </Link>
+
         <Link href="/blog"
           style={{
             display: 'flex',
@@ -208,8 +232,7 @@ export default function Header() {
           </svg>
           <span>BLOG</span>
         </Link>
-        
-        
+
         {/* Admin-Link - nur anzeigen, wenn der Benutzer ein Admin ist */}
         {isAdmin && (
           <Link href="/admin" style={{
