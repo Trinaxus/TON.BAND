@@ -184,6 +184,7 @@ export default function AdminPage() {
   const [progress, setProgress] = useState(0);
   const [uploadResults, setUploadResults] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [hoverPreview, setHoverPreview] = useState<{url: string, visible: boolean, x: number, y: number}>({ url: '', visible: false, x: 0, y: 0 });
 
   // Fetch galleries
   const fetchGalleries = async () => {
@@ -757,12 +758,24 @@ export default function AdminPage() {
 
   // Hilfsfunktion: WebDisk-URL zu tonband-URL konvertieren
   const convertWebDiskUrl = (url: string): string => {
-    if (url && url.includes("/WebDisk/uploads/")) {
+    if (!url) return url;
+    // WebDisk -> tonband
+    if (url.includes("/WebDisk/uploads/")) {
       return url.replace("https://www.tubox.de/WebDisk/uploads/", "https://tonbandleipzig.de/tonband/uploads/");
     }
-    // Falls es noch Partycrasher-URLs gibt, diese auch konvertieren
-    if (url && url.includes("/Partycrasher/uploads/")) {
-      return url.replace("https://www.tubox.de/Partycrasher/uploads/", "https://tonbandleipzig.de/tonband/uploads/");
+  
+    // Standardisiere alle bestehenden Upload-URLs auf tonband (entferne www.)
+    if (url.includes("/uploads/")) {
+      try {
+        const pathAfterUploads = url.split("/uploads/")[1];
+        if (pathAfterUploads) {
+          return `https://tonbandleipzig.de/tonband/uploads/${pathAfterUploads}`;
+        }
+      } catch {}
+    }
+    // Explizit www.tonbandleipzig.de auf tonbandleipzig.de normalisieren
+    if (url.startsWith("https://www.tonbandleipzig.de/")) {
+      return url.replace("https://www.tonbandleipzig.de/", "https://tonbandleipzig.de/");
     }
     return url;
   };
@@ -1107,7 +1120,7 @@ const getGalleryThumb = (gallery: Gallery): string => {
                                 </div>
                               </div>
                             ) : (
-                              <img 
+                                  <img 
                                 src={convertedImg} 
                                 alt="thumb" 
                                 style={{ 
@@ -1119,6 +1132,19 @@ const getGalleryThumb = (gallery: Gallery): string => {
                                   opacity: imgDeleting[img] ? 0.4 : 1, 
                                   transition: 'filter 0.2s, opacity 0.2s' 
                                 }} 
+                                onMouseEnter={(e) => {
+                                  const maxW = 640; const pad = 24; const vw = window.innerWidth;
+                                  const toLeft = e.clientX + pad + maxW > vw;
+                                  const x = toLeft ? Math.max(0, e.clientX - pad - maxW) : e.clientX + pad;
+                                  setHoverPreview({ url: convertedImg, visible: true, x, y: e.clientY });
+                                }}
+                                onMouseMove={(e) => {
+                                  const maxW = 640; const pad = 24; const vw = window.innerWidth;
+                                  const toLeft = e.clientX + pad + maxW > vw;
+                                  const x = toLeft ? Math.max(0, e.clientX - pad - maxW) : e.clientX + pad;
+                                  setHoverPreview(prev => ({ ...prev, x, y: e.clientY }));
+                                }}
+                                onMouseLeave={() => setHoverPreview({ url: '', visible: false, x: 0, y: 0 })}
                               />
                             )}
                             <button
@@ -1936,6 +1962,37 @@ const getGalleryThumb = (gallery: Gallery): string => {
             </svg>
             Löschen
           </button>
+        </div>
+      )}
+
+      {/* Global Hover-Preview Overlay */}
+      {hoverPreview.visible && hoverPreview.url && (
+        <div
+          style={{
+            position: 'fixed',
+            top: hoverPreview.y,
+            left: hoverPreview.x,
+            transform: 'translate(8px, -50%)',
+            zIndex: 2147483647,
+            pointerEvents: 'none',
+            background: 'rgba(0,0,0,0.9)',
+            border: '1px solid rgba(255,255,255,0.2)',
+            borderRadius: 10,
+            padding: 8,
+            boxShadow: '0 10px 40px rgba(0,0,0,0.45)'
+          }}
+        >
+          <img
+            src={hoverPreview.url}
+            alt="Preview"
+            style={{
+              maxWidth: '640px',
+              maxHeight: '80vh',
+              display: 'block',
+              borderRadius: 8,
+              objectFit: 'contain'
+            }}
+          />
         </div>
       )}
     </AuthCheck>

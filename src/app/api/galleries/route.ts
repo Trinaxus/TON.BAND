@@ -30,11 +30,12 @@ export async function GET(request: NextRequest) {
     
     if (!res.ok) {
       console.log(`Fehler beim Laden der Galerien vom Server: ${res.status}`);
+      // Wichtig: 200 zurückgeben, damit der Client auf Fallback-Daten umschalten kann
       return NextResponse.json({ 
         error: `API-Fehler: ${res.status}`,
         galleries: {},
         metadata: {}
-      }, { status: res.status });
+      }, { status: 200 });
     }
     
     try {
@@ -135,26 +136,29 @@ export async function GET(request: NextRequest) {
         });
       } else {
         console.log('Keine Galerien gefunden');
+        // 200 zurückgeben, damit der Client fallbackt
         return NextResponse.json({ 
           galleries: {},
           metadata: {}
-        }, { status: 404 });
+        }, { status: 200 });
       }
     } catch (parseError) {
       console.error('Fehler beim Parsen der JSON-Antwort:', parseError);
+      // 200 zurückgeben, damit der Client fallbackt
       return NextResponse.json({ 
         error: 'Fehler beim Parsen der API-Antwort',
         galleries: {},
         metadata: {}
-      }, { status: 500 });
+      }, { status: 200 });
     }
   } catch (fetchError) {
     console.error('Fehler beim Abrufen der Galerien:', fetchError);
+    // 200 zurückgeben, damit der Client fallbackt
     return NextResponse.json({ 
       error: 'Fehler beim Abrufen der Galerien',
       galleries: {},
       metadata: {}
-    }, { status: 500 });
+    }, { status: 200 });
   }
 }
 

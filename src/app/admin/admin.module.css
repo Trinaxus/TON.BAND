@@ -10,6 +10,9 @@
   margin: 0 auto;
   padding: 16px;
   box-sizing: border-box;
+  overflow: visible;
+  position: relative;
+  z-index: 1;
 }
 
 @media (max-width: 768px) {
@@ -243,6 +246,9 @@
   flex-direction: row;
   flex-wrap: wrap;
   width: 100%;
+  overflow: visible;
+  position: relative;
+  z-index: 5;
 }
 
 @media (max-width: 768px) {
@@ -768,9 +774,10 @@
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.077), 0 0 15px rgba(0, 247, 255, 0);
   border: 1px solid rgba(0, 247, 255, 0.122);
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   max-width: 100%;
   transition: all 0.3s cubic-bezier(0.19, 1, 0.22, 1);
+  z-index: 10;
 }
 
 .gallerySection:before {
@@ -813,6 +820,7 @@
   gap: 16px;
   width: 100%;
   align-items: center;
+  overflow: visible;
 }
 
 /* Galerie-Karte - Einzelne Karte für jede Galerie */
@@ -822,7 +830,7 @@
   padding: 20px;
   margin-bottom: 24px;
   box-shadow: 0 4px 20px rgba(118, 118, 118, 0.2), inset 0 0 20px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
+  overflow: visible;
   transition: all 0.3s cubic-bezier(0.19, 1, 0.22, 1);
   width: 800px;
   max-width: 100%;
@@ -831,6 +839,7 @@
   position: relative;
   border: 0.5px solid rgba(0, 247, 255, 0.3);
   backdrop-filter: blur(0px);
+  z-index: 20;
 }
 
 /* Hover-Effekt für Galerie-Karten */
@@ -838,6 +847,7 @@
   transform: translateY(0px);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3), inset 0 0 30px rgba(0, 0, 0, 0.1), 0 0 15px rgba(0, 247, 255, 0.15);
   border-color: var(--color-primary-500);
+  z-index: 30;
 }
 
 .galleryCard:before {
@@ -874,6 +884,7 @@
   border-radius: 12px;
   transition: all 0.3s ease;
   position: relative;
+  overflow: visible;
 }
 
 /* Galerie-Content - Inhaltsbereich innerhalb des Headers */
@@ -1276,6 +1287,9 @@
   gap: 12px;
   width: 100%;
   box-sizing: border-box;
+  overflow: visible;
+  position: relative;
+  z-index: 40;
 }
 
 .form {
@@ -1302,8 +1316,9 @@
   position: relative;
   width: 100%;
   aspect-ratio: 4/3;
+  z-index: 50;
   border-radius: 8px;
-  overflow: hidden;
+  overflow: visible;
   background: var(--color-neutral-800);
   box-shadow: 0 1px 6px rgba(var(--color-primary-500-rgb), 0.10);
   margin-bottom: 4px;
@@ -1485,7 +1500,7 @@
   width: 100px;
   height: 60px;
   border-radius: 6px;
-  overflow: hidden;
+  overflow: visible;
   background: var(--color-dark);
 }
 
@@ -1496,6 +1511,39 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* Hover-Preview: Großes Bild beim Überfahren anzeigen */
+.hoverPreview {
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  transform: translateY(-50%);
+  margin-left: 14px;
+  display: none;
+  z-index: 999999; /* topmost */
+  padding: 8px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255,255,255,0.04) inset;
+  pointer-events: none;
+}
+
+.hoverPreviewImage {
+  width: min(640px, 85vw);
+  max-height: min(520px, 80vh);
+  object-fit: contain;
+  border-radius: 8px;
+  display: block;
+}
+
+.imageMini:hover .hoverPreview {
+  display: block;
+}
+
+.galleryImageItem:hover .hoverPreview {
+  display: block;
 }
 
 .videoIndicator {
