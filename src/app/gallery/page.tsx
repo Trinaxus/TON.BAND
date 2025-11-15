@@ -268,6 +268,7 @@ export default function GalleryPage() {
   const [passwordInput, setPasswordInput] = useState('');
   const [currentPasswordGallery, setCurrentPasswordGallery] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [downloadTip, setDownloadTip] = useState<{visible: boolean, x: number, y: number}>({ visible: false, x: 0, y: 0 });
 
   // Responsivität erkennen
   useEffect(() => {
@@ -875,6 +876,56 @@ export default function GalleryPage() {
                               <span className={styles.mediaCount}>
                                 {images.length} {isVideoGallery(galleryName) ? 'Videos' : 'Medien'}
                               </span>
+                              {((metadata[galleryName]?.accessType !== 'password') || unlockedGalleries.includes(galleryName)) && (
+                                <span className={styles.downloadWrapper} style={{ marginLeft: 12 }}>
+                                  <button
+                                    className={styles.downloadBubble}
+                                    onMouseEnter={(e) => {
+                                      setDownloadTip({ visible: true, x: e.clientX + 12, y: e.clientY - 12 });
+                                    }}
+                                    onMouseMove={(e) => {
+                                      setDownloadTip(prev => ({ ...prev, x: e.clientX + 12, y: e.clientY - 12 }));
+                                    }}
+                                    onMouseLeave={() => setDownloadTip({ visible: false, x: 0, y: 0 })}
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      try {
+                                        const imageUrls = images || [];
+                                        if (!imageUrls.length) return;
+                                        const res = await fetch('/api/download-gallery', {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ galleryName, imageUrls })
+                                        });
+                                        if (!res.ok) {
+                                          const text = await res.text();
+                                          throw new Error(text || 'Fehler beim Erstellen des ZIP-Archivs');
+                                        }
+                                        const blob = await res.blob();
+                                        const url = URL.createObjectURL(blob);
+                                        const a = document.createElement('a');
+                                        const safeName = galleryName.replace(/\//g, '_');
+                                        a.href = url;
+                                        a.download = `${safeName}.zip`;
+                                        document.body.appendChild(a);
+                                        a.click();
+                                        a.remove();
+                                        URL.revokeObjectURL(url);
+                                      } catch (err) {
+                                        console.error('Download-Fehler:', err);
+                                      }
+                                    }}
+                                    title="Galerie als ZIP herunterladen"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                      <polyline points="7 10 12 15 17 10"/>
+                                      <line x1="12" y1="15" x2="12" y2="3"/>
+                                    </svg>
+                                    Download
+                                  </button>
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1125,6 +1176,28 @@ export default function GalleryPage() {
             </div>
           </div>
         </>
+      )}
+
+      {downloadTip.visible && (
+        <div
+          style={{
+            position: 'fixed',
+            top: downloadTip.y,
+            left: downloadTip.x,
+            transform: 'translate(8px, -50%)',
+            zIndex: 2147483647,
+            pointerEvents: 'none',
+            background: 'rgba(0,0,0,0.9)',
+            border: '1px solid rgba(255,255,255,0.2)',
+            borderRadius: 8,
+            padding: '8px 10px',
+            color: '#fff',
+            fontSize: 12,
+            boxShadow: '0 10px 30px rgba(0,0,0,0.35)'
+          }}
+        >
+          Hinweis: Das Erstellen des ZIPs kann je nach Anzahl der Bilder etwas dauern.
+        </div>
       )}
     </>
   );

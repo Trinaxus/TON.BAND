@@ -96,7 +96,7 @@
   background-color: #232429;
   border: 2px solid rgba(0,225,255,1);
   border-radius: 12px !important;
-  overflow: hidden;
+  overflow: visible;
   position: relative;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
   transition: all 0.3s ease, border-radius 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
@@ -141,7 +141,7 @@
 }
 
 .galleryCard:hover {
-  transform: translateY(-5px);
+  transform: none;
   box-shadow: 0 8px 24px rgba(0, 225, 255, 0.6);
   border: 2px solid rgba(0, 225, 255, 1);
   border-radius: 12px !important;
@@ -314,6 +314,70 @@
 }
 
 /* Hover-Effekt für mediaCount entfernt */
+
+/* Download Bubble + Tooltip */
+.downloadWrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.downloadBubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  line-height: 1;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.35);
+  color: #ffffff;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.downloadBubble:hover {
+  background: rgba(0, 0, 0, 0.5);
+  border-color: rgba(255, 255, 255, 0.28);
+  transform: translateY(-1px);
+}
+
+.downloadTooltip {
+  position: absolute;
+  bottom: 140%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 10px;
+  font-size: 11px;
+  white-space: nowrap;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 20;
+}
+
+.downloadTooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px;
+  border-style: solid;
+  border-color: rgba(0, 0, 0, 0.9) transparent transparent transparent;
+}
+
+.downloadWrapper:hover .downloadTooltip {
+  opacity: 1;
+}
 
 .galleryInfo {
   display: flex;

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './PremiumLightbox.module.css';
@@ -35,6 +35,27 @@ export default function PremiumLightbox({
   
   // Anzeige: Zähler und Galeriename
   const totalItems = allMedia.length;
+  // Refs for auto-scrolling the thumbnail strip
+  const stripRef = useRef<HTMLDivElement | null>(null);
+  const thumbRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  // Keep active thumbnail in view
+  useEffect(() => {
+    if (!isOpen) return;
+    const active = thumbRefs.current[currentIndex];
+    const container = stripRef.current;
+    if (active && container) {
+      try {
+        active.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      } catch {
+        // Fallback manual scroll calculation
+        const aRect = active.getBoundingClientRect();
+        const cRect = container.getBoundingClientRect();
+        const offset = (aRect.left + aRect.right) / 2 - (cRect.left + cRect.right) / 2;
+        container.scrollLeft += offset;
+      }
+    }
+  }, [currentIndex, isOpen]);
   
   // Mobile Detection
   const [isMobile, setIsMobile] = useState(false);
@@ -164,6 +185,13 @@ export default function PremiumLightbox({
             onTouchEnd={handleTouchEnd}
             
           >
+            {/* Top centered gallery name ABOVE the media */}
+            {galleryName && (
+              <div className={styles.topCenterBar}>
+                <div className={styles.galleryName}>{galleryName}</div>
+              </div>
+            )}
+
             <div className={styles.mediaContainer}>
               {currentMediaType === 'image' ? (
                 <div className={styles.imageWrapper}>
@@ -190,6 +218,32 @@ export default function PremiumLightbox({
                 </div>
               )}
             </div>
+
+            {/* Thumbnail strip */}
+            {allMedia.length > 1 && (
+              <div ref={stripRef} className={styles.thumbStrip} onClick={(e) => e.stopPropagation()}>
+                {allMedia.map((url, idx) => (
+                  <div
+                    key={`${url}-${idx}`}
+                    className={`${styles.thumbItem} ${idx === currentIndex ? styles.thumbActive : ''}`}
+                    onClick={() => navigateTo(idx)}
+                    ref={(el) => { thumbRefs.current[idx] = el; }}
+                    title={`#${idx + 1}`}
+                  >
+                    <div className={styles.thumbImageWrap}>
+                      {isVideo(url) ? (
+                        <>
+                          <video src={url} className={styles.image} muted />
+                          <span className={styles.thumbVideoBadge}>Video</span>
+                        </>
+                      ) : (
+                        <Image src={url} alt={`Thumb ${idx + 1}`} fill className={styles.image} sizes="100px" />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
             
             {/* Steuerelemente */}
             <div className={styles.controls}>
@@ -231,7 +285,7 @@ export default function PremiumLightbox({
               </button>
             </div>
             
-            {/* Minimaler Zähler und Galeriename */}
+            {/* Minimaler Zähler (links oben) */}
             <div className={styles.progressContainer}>
               <div className={styles.imageCounterContainer}>
                 <div className={styles.imageCounter}>
@@ -239,9 +293,6 @@ export default function PremiumLightbox({
                   <span className={styles.separator}>/</span>
                   <span className={styles.totalItems}>{totalItems}</span>
                 </div>
-                {galleryName && (
-                  <div className={styles.galleryName}>{galleryName}</div>
-                )}
               </div>
             </div>
           </motion.div>
