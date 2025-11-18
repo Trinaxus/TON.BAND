@@ -157,7 +157,7 @@ export default function Header() {
           <img 
             src="/Logo_ton.band_weiss.png" 
             alt="TON.BAND Logo" 
-            className="w-[90px] md:w-[110px] h-auto filter drop-shadow-md"
+            className="w-[130px] md:w-[170px] h-auto filter drop-shadow-md"
           />
         </Link>
       </nav>
