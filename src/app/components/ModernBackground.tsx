@@ -24,7 +24,7 @@ export default function ModernBackground({
         height: '100%',
         zIndex: -1,
         background: 'linear-gradient(135deg, #18181b 0%, #232326 40%, #232429 80%, #1a1a1a 100%)', // subtile Grauabstufungen
-        fontFamily: "'Poppins', sans-serif",
+        fontFamily: "'Poppins', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       }}
     >
       {/* Subtile Akzent-Elemente */}
